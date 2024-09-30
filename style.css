@@ -1,0 +1,48 @@
+* {
+    box-sizing: border-box
+}
+
+.header {
+    text-align: center;;
+}
+
+.footer {
+    text-align: center;
+    padding: 15px;
+    background: beige;
+    margin-top: 10px;
+}
+
+.mybar a.right {
+    float: right;
+}
+
+.mybar {
+    background-color: grey;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.main {
+    flex: auto;
+    padding: 20px;
+    border: 1px solid black;
+    margin-left: 5px;
+}
+
+.side {
+    flex: auto;
+    padding: 20px;
+    background: rgb(199, 199, 199);
+    margin-right: 5px;
+}
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.fit-picture {
+    width: 100px;
+    height: auto;
+}
