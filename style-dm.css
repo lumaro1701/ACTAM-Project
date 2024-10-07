@@ -1,22 +1,98 @@
+.drum-machine {
+    background-color: rgb(57, 57, 57);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 1000px;
+    min-width: 600px;
+    border-radius: 5px;
+    height: 600px;
+    padding-top: 2%;
+    padding-bottom: 2%;
+    margin: auto;
+}
+
+.buttons {
+    border: 3px solid black;
+    height: 45%;
+    width: 90%;
+    padding: 10px;
+    border-radius: 10px;
+    display: flex;
+    margin: auto;
+}
+
+.controls {
+    border: 3px solid black;
+    height: 15%;
+    width: 90%;
+    padding: 10px;
+    border-radius: 10px;
+    display: flex;
+    margin: auto;
+}
+
 .keyboard {
     background-color: grey;
     width: 90%;
     border-radius: 10px;
-    height: 110px;
+    height: 20%;
     display: flex;
     padding: 10px;
-    align-items: center;
+    margin: auto;
 }
 
 .red-key {
-    background-color: rgb(255, 106, 0);
-    height: 100px;
-    width: 50px;
+    background-color: rgb(253, 105, 25);
+    height: 100%;
+    width: 8%;
     border-radius: 10px;
+    margin: auto;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.orange-key {
+    background-color: rgb(255, 153, 0);
+    height: 100%;
+    width: 8%;
+    border-radius: 10px;
+    margin: auto;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.yellow-key {
+    background-color: rgb(255, 223, 39);
+    height: 100%;
+    width: 8%;
+    border-radius: 10px;
+    margin: auto;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.white-key {
+    background-color: rgb(255, 246, 211);
+    height: 100%;
+    width: 8%;
+    border-radius: 10px;
+    margin: auto;
+    margin-left: 5px;
+    margin-right: 5px;
 }
 
 .led-on {
-    background-color: rgb(223, 0, 0);
+    background-color: rgb(255, 0, 0);
+    height: 15px;
+    width: 15px;
+    border-radius: 15px;
+    margin: auto;
+    margin-top: 5px;;
+}
+
+.led-off {
+    background-color: rgb(96, 0, 0);
     height: 15px;
     width: 15px;
     border-radius: 15px;
