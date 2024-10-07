@@ -1,38 +1,25 @@
 .keyboard {
-    width: 100%;
-    border-radius: 20%;
-    height: 150px;
+    background-color: grey;
+    width: 90%;
+    border-radius: 10px;
+    height: 110px;
+    display: flex;
+    padding: 10px;
+    align-items: center;
 }
 
-.key {
+.red-key {
     background-color: rgb(255, 106, 0);
     height: 100px;
     width: 50px;
-    border-radius: 10%;
-    text-align: center;
-    position: absolute;
+    border-radius: 10px;
 }
 
-#D {
-    left: 70px;
-}
-
-#E {
-    left: 130px;
-}
-
-#F {
-    left: 190px;
-}
-
-#G {
-    left: 250px;
-}
-
-#A {
-    left: 310px;
-}
-
-#B {
-    left: 370px;
+.led-on {
+    background-color: rgb(223, 0, 0);
+    height: 15px;
+    width: 15px;
+    border-radius: 15px;
+    margin: auto;
+    margin-top: 5px;;
 }
