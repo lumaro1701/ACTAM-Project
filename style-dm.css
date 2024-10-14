@@ -42,44 +42,15 @@
     margin: auto;
 }
 
-.red-key {
-    background-color: rgb(253, 105, 25);
+.key {
+    background-color: rgb(253, 173, 25);
     height: 100%;
     width: 8%;
     border-radius: 10px;
     margin: auto;
     margin-left: 5px;
     margin-right: 5px;
-}
-
-.orange-key {
-    background-color: rgb(255, 153, 0);
-    height: 100%;
-    width: 8%;
-    border-radius: 10px;
-    margin: auto;
-    margin-left: 5px;
-    margin-right: 5px;
-}
-
-.yellow-key {
-    background-color: rgb(255, 223, 39);
-    height: 100%;
-    width: 8%;
-    border-radius: 10px;
-    margin: auto;
-    margin-left: 5px;
-    margin-right: 5px;
-}
-
-.white-key {
-    background-color: rgb(255, 246, 211);
-    height: 100%;
-    width: 8%;
-    border-radius: 10px;
-    margin: auto;
-    margin-left: 5px;
-    margin-right: 5px;
+    cursor: pointer;
 }
 
 .led-on {
