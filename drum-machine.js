@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     //keys click
     const keys = document.querySelectorAll(".key")
+    
     keys.forEach((key, index) => {
         key.addEventListener('click', function() {
 
@@ -38,14 +39,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const mode_button = document.querySelector("#mode_button")
     mode_button.addEventListener('click', function() {
+        switch_mode()
         mode = (mode+1) % 2
     })
 
 
     const play_button = document.querySelector("#play_button")
     play_button.addEventListener('click', function() {
+
+        if(play == 0){
+            play_seq()
+        }else{
+            stop_seq()
+        }
         play = (play+1) % 2
-        play_seq(keys)
     })
 
 
@@ -54,18 +61,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-led_on = function(led) {
-    led.classList.remove("led-off");
-    led.classList.add("led-on");
-    setTimeout(function() {
-        led.classList.remove("led-on");
-        led.classList.add("led-off");
-    }, beat/8*1000)
-}
-
-
 play_note = function(key, audio_context, key_index, octave) {
-    led_on(key.children[0])
+    one_led_on(key.children[0])
     osc = audio_context.createOscillator()
     osc.connect(audio_context.destination)
     osc.frequency.setValueAtTime((32.70*2**(key_index/12+octave)), audio_context.currentTime)
@@ -76,10 +73,57 @@ play_note = function(key, audio_context, key_index, octave) {
 
 
 play_sample = function(key, sample){
-    led_on(key.children[0])
+    one_led_on(key.children[0])
     sample.play()
 }
 
 
-play_seq = function(keys) {
+//MODEL
+counter = 0
+
+//VIEW
+
+switch_mode = function(){
+    keys = document.querySelectorAll(".key")
+    keys.forEach(key => key.classList.toggle("key-white"))
 }
+
+one_led_on = function(led) {
+    led.classList.toggle("led-on");
+    setTimeout(function() {
+        led.classList.toggle("led-on");
+    }, beat/4*1000)
+}
+
+all_led_off = function() {
+    leds = document.querySelectorAll(".led")
+    leds.forEach(led => led.classList.remove("led-on"))
+}
+
+render = function() {
+    leds = document.querySelectorAll(".led")
+    all_led_off()
+    leds[counter].classList.add("led-on")
+}
+
+
+//CONTROLLER
+
+intervalId = 0
+
+incr = function () {
+    render()
+    counter = (counter+1) % 16
+}
+
+play_seq = function () {
+    intervalId = setInterval(incr, beat/4*1000)
+}
+
+stop_seq = function () {
+    clearInterval(intervalId)
+    all_led_off()
+    counter = 0
+}
+
+//MIX

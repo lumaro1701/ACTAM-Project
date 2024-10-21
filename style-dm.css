@@ -75,20 +75,19 @@
     cursor: pointer;
 }
 
-.led-on {
-    background-color: rgb(255, 0, 0);
-    height: 15px;
-    width: 15px;
-    border-radius: 15px;
-    margin: auto;
-    margin-top: 5px;;
+.key-white {
+    background-color: rgb(232, 232, 232) !important;
 }
 
-.led-off {
+.led-on {
+    background-color: rgb(255, 0, 0) !important;
+}
+
+.led {
     background-color: rgb(96, 0, 0);
     height: 15px;
     width: 15px;
     border-radius: 15px;
     margin: auto;
-    margin-top: 5px;;
+    margin-top: 5px;
 }
