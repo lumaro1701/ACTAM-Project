@@ -77,6 +77,8 @@
 }
 
 .select-button {
+    background-color: rgb(251, 255, 0);
+    cursor: pointer;
     height: 100%;
     width: 100%;
     border-radius: 10px;
@@ -85,9 +87,8 @@
     margin-right: 5px;
 }
 
-.select-button-enabled {
-    background-color: rgb(251, 255, 0) !important;
-    cursor: pointer !important;
+.select-button-enable {
+    background-color: rgb(255, 106, 0) !important;
 }
 
 .key {
