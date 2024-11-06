@@ -1,3 +1,24 @@
+/*
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAqPCjw_17nBvDojf_PDj6C0uOqwULqgFo",
+  authDomain: "actam-2024.firebaseapp.com",
+  projectId: "actam-2024",
+  storageBucket: "actam-2024.firebasestorage.app",
+  messagingSenderId: "620541054373",
+  appId: "1:620541054373:web:f0a24d99dd57af3f526c4c"
+};
+
+// Initialize Firebase
+const app = firebase.initializeApp(firebaseConfig);
+db = firebase.firestore();
+*/
+
 console.log("This is my drum machine");
 
 bpm = 174
@@ -31,6 +52,10 @@ for(let i=0; i<sample_seqs.length; i++){
         sample_seqs[i][j] = 0
     }
 }
+
+/*
+db.collection("store").doc("data").set({nb_keys: nb_keys})
+*/
 
 
 //Waiting for the HTML content to be loaded
