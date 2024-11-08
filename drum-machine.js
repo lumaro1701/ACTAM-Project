@@ -1,64 +1,7 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/9.1.1/firebase-firestore.js";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyAqPCjw_17nBvDojf_PDj6C0uOqwULqgFo",
-  authDomain: "actam-2024.firebaseapp.com",
-  projectId: "actam-2024",
-  storageBucket: "actam-2024.firebasestorage.app",
-  messagingSenderId: "620541054373",
-  appId: "1:620541054373:web:f0a24d99dd57af3f526c4c"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
 console.log("This is my drum machine");
-
-let bpm = 174
-let beat = 60/bpm
-
-let mode = 0
-let play = 0
-let edit_mode = -1
-
-let octave = 3
-
-let nb_keys = 16
-
-const audio_context = new AudioContext()
-
-//Sample list
-const samples = [
-    new Audio("assets/kick.wav"),
-    new Audio("assets/snare.wav"),
-    new Audio("assets/closed_hihat.wav"),
-    new Audio("assets/open_hihat.wav"),
-    new Audio("assets/shaker.wav"),
-    new Audio("assets/fill.wav"),
-]
-
-//Step list for each sample
-let sample_seqs = Array(nb_keys)
-for(let i=0; i<sample_seqs.length; i++){
-    sample_seqs[i] = Array(nb_keys)
-    for(let j=0; j<nb_keys; j++){
-        sample_seqs[i][j] = 0
-    }
-}
-
-/*
-db.collection("store").doc("data").set({nb_keys: nb_keys})
-*/
 
 //Waiting for the HTML content to be loaded
 document.addEventListener('DOMContentLoaded', function() {
-
 
     //Creation of the keys
     for(let i=0; i<nb_keys; i++){
@@ -115,12 +58,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
-//MODEL
+//-----MODEL-----
 let counter = 0
 
 
+let bpm = 174
+let beat = 60/bpm
 
-//VIEW
+//Play mode (drum machine or synth)
+let mode = 0
+//Play state
+let play = 0
+//Edit state
+let edit_mode = -1
+
+
+let octave = 3
+
+let nb_keys = 16
+
+//Create the audio context
+const audio_context = new AudioContext()
+
+//Paths to samples for the drum machine
+const samples = [
+    "assets/kick.wav",
+    "assets/snare.wav",
+    "assets/closed_hihat.wav",
+    "assets/open_hihat.wav",
+    "assets/shaker.wav",
+    "assets/fill.wav",
+]
+
+//2D array for the step sequencer
+let sample_seqs = Array(nb_keys)
+for(let i=0; i<sample_seqs.length; i++){
+    sample_seqs[i] = Array(nb_keys)
+    for(let j=0; j<nb_keys; j++){
+        sample_seqs[i][j] = 0
+    }
+}
+
+
+
+//-----VIEW-----
 function switch_mode(){
     let keys = document.querySelectorAll(".key")
     keys.forEach(key => key.classList.toggle("key-white"))
@@ -179,17 +160,18 @@ function create_key(index) {
 
 
 
-//CONTROLLER
+//-----CONTROLLER-----
 let intervalId = 0
+
 
 function incr() {
     render()
-    counter = (counter+1) % nb_keys
     for(let i=0; i<sample_seqs.length; i++){
         if (sample_seqs[i][counter] == 1){
             play_sample(i)
         }
     }
+    counter = (counter+1) % nb_keys
 }
 
 function play_seq() {
@@ -231,7 +213,18 @@ function key_clicked(key, key_index) {
     }
 }
 
-//MIX
+function play_sample(sample_index){
+    if(sample_index < samples.length){
+        //Loading audio samples in a buffer
+        var audioFile = fetch(samples[sample_index]).then(response => response.arrayBuffer()).then(buffer => audio_context.decodeAudioData(buffer)).then(buffer => {
+            var track = audio_context.createBufferSource();
+            track.buffer = buffer;
+            track.connect(audio_context.destination);
+            track.start(0);
+        });
+    }
+}
+
 function play_note(key, key_index) {
     let osc = audio_context.createOscillator()
     osc.connect(audio_context.destination)
@@ -239,11 +232,4 @@ function play_note(key, key_index) {
 
     osc.start()
     setTimeout(function() {osc.stop()}, 200)
-}
-
-
-function play_sample(sample_index){
-    if(sample_index < samples.length){
-        samples[sample_index].play()
-    }
 }
