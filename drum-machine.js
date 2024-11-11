@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
 let counter = 0
 
 
-let bpm = 174
+let bpm = 120
 let beat = 60/bpm
 
 //Play mode (drum machine or synth)
@@ -156,6 +156,19 @@ function create_key(index) {
     e = document.createElement("div")
     e.classList.add("select-button")
     document.querySelector(".selectors").appendChild(e)
+}
+
+function create_grid(index) {
+    //Create column
+    let e = document.createElement("div")
+    e.classList.add("grid")
+    let k
+    for(let i=0; i<12; i++){
+        k = document.createElement("div")
+        k.classList.add("step");
+        e.appendChild(k)
+    }
+    document.querySelector(".keyboard").appendChild(e)
 }
 
 

@@ -102,6 +102,27 @@
     cursor: pointer;
 }
 
+.grid {
+    height: 100%;
+    width: 100%;
+    border-radius: 10px;
+    margin: auto;
+    margin-left: 5px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+
+.step {
+    background-color: rgb(255, 249, 238);
+    height: 100%;
+    width: 100%;
+    border-radius: 10px;
+    margin: auto;
+    margin-left: 5px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+
 .key-white {
     background-color: rgb(232, 232, 232) !important;
 }
