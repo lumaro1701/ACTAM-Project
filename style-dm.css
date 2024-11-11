@@ -102,7 +102,7 @@
     cursor: pointer;
 }
 
-.grid {
+.step {
     height: 100%;
     width: 100%;
     border-radius: 10px;
@@ -112,7 +112,7 @@
     cursor: pointer;
 }
 
-.step {
+.note {
     background-color: rgb(255, 249, 238);
     height: 100%;
     width: 100%;

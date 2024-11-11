@@ -4,9 +4,7 @@ console.log("This is my drum machine");
 document.addEventListener('DOMContentLoaded', function() {
 
     //Creation of the keys
-    for(let i=0; i<nb_keys; i++){
-        create_key(i)
-    }
+    drum_machine_section()
 
     //Keys click
     const keys = document.querySelectorAll(".key")
@@ -31,7 +29,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const mode_button = document.querySelector("#mode_button")
     mode_button.addEventListener('click', function() {
         switch_mode()
-        mode = 1 - mode
     })
 
     //Play/pause button
@@ -103,9 +100,13 @@ for(let i=0; i<sample_seqs.length; i++){
 
 //-----VIEW-----
 function switch_mode(){
-    let keys = document.querySelectorAll(".key")
-    keys.forEach(key => key.classList.toggle("key-white"))
+    if (mode == 0){
+        synth_section()
+    }else{
+        drum_machine_section()
+    }
     toggle_edit_mode(-1)
+    mode = 1 - mode
 }
 
 function one_led_on(led, keep_on=false) {
@@ -143,32 +144,68 @@ function disable_all_select_buttons() {
     document.querySelectorAll(".select-button").forEach(button => button.style.backgroundColor = "")
 }
 
-function create_key(index) {
-    //Create key
-    let e = document.createElement("div")
-    e.classList.add("key")
-    let k = document.createElement("div")
-    k.classList.add("led")
-    e.appendChild(k)
-    document.querySelector(".keyboard").appendChild(e)
+function drum_machine_section() {
+    var p = document.querySelector(".play-section");
 
-    //Create selector
-    e = document.createElement("div")
-    e.classList.add("select-button")
-    document.querySelector(".selectors").appendChild(e)
+    //Remove all previous sections
+    while (p.firstChild) {
+        p.firstChild.remove(); 
+    }
+
+    //Add the keyboard section
+    let k = document.createElement("div")
+    k.classList.add("keyboard")
+    p.appendChild(k)
+
+    //Add the selectors section
+    let s = document.createElement("div")
+    s.classList.add("selectors")
+    p.appendChild(s)
+
+    //Create keys and selectors
+    let e
+    let l
+    for(let i=0; i<nb_keys; i++){
+        e = document.createElement("div")
+        e.classList.add("key")
+        l = document.createElement("div")
+        l.classList.add("led")
+        e.appendChild(l)
+        k.appendChild(e)
+        //Create selector
+        e = document.createElement("div")
+        e.classList.add("select-button")
+        s.appendChild(e)
+    }
 }
 
-function create_grid(index) {
-    //Create column
-    let e = document.createElement("div")
-    e.classList.add("grid")
-    let k
-    for(let i=0; i<12; i++){
-        k = document.createElement("div")
-        k.classList.add("step");
-        e.appendChild(k)
+function synth_section() {
+    var p = document.querySelector(".play-section");
+
+    //Remove all previous sections
+    while (p.firstChild) {
+        p.firstChild.remove(); 
     }
-    document.querySelector(".keyboard").appendChild(e)
+
+    //Add the keyboard section
+    let k = document.createElement("div")
+    k.classList.add("keyboard")
+    p.appendChild(k)
+
+    for(let i=0; i<nb_keys; i++){
+        //Create columns of the grid (steps)
+        let e = document.createElement("div")
+        e.classList.add("step")
+
+        //Add the keys for each step
+        let n
+        for(let i=0; i<12; i++){
+            n = document.createElement("div")
+            n.classList.add("note");
+            e.appendChild(n)
+        }
+        document.querySelector(".keyboard").appendChild(e)
+    }
 }
 
 
