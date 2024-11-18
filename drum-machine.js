@@ -3,29 +3,10 @@ console.log("This is my drum machine");
 //Waiting for the HTML content to be loaded
 document.addEventListener('DOMContentLoaded', function() {
 
-    //Creation of the keys
+    //Creation of the keys of the drum machine
     drum_machine_section()
 
-    //Keys click
-    const keys = document.querySelectorAll(".key")
-    keys.forEach((key, index) => {
-        key.addEventListener('click', function() {
-
-            //Play mode
-            if (edit_mode == -1) {
-                key_clicked(key, index)
-            }
-
-            //Edit mode
-            else {
-                edit_sample_seq(index, edit_mode)
-                play_sample(edit_mode)
-            }
-            
-        })
-    })
-
-    //Mode drums/keyboard
+    //Load elements of the control section
     const mode_button = document.querySelector("#mode_button")
     mode_button.addEventListener('click', function() {
         switch_mode()
@@ -42,15 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         play = 1 - play
     })
-
-    //Selector and edit mode
-    const selectors = document.querySelectorAll(".select-button")
-    selectors.forEach((selector, index) => {
-        selector.addEventListener('click', function (){
-            toggle_edit_mode(index)
-        })
-    })
-
 });
 
 
@@ -87,12 +59,21 @@ const samples = [
     "assets/fill.wav",
 ]
 
-//2D array for the step sequencer
+//2D array for the drum machine step sequencer
 let sample_seqs = Array(nb_keys)
 for(let i=0; i<sample_seqs.length; i++){
     sample_seqs[i] = Array(nb_keys)
-    for(let j=0; j<nb_keys; j++){
+    for(let j=0; j<sample_seqs[i].length; j++){
         sample_seqs[i][j] = 0
+    }
+}
+
+//2D array for the step sequencer
+let notes_seqs = Array(nb_keys)
+for(let i=0; i<notes_seqs.length; i++){
+    notes_seqs[i] = Array(7*12)
+    for(let j=0; j<notes_seqs[i].length; j++){
+        notes_seqs[i][j] = 0
     }
 }
 
@@ -177,6 +158,9 @@ function drum_machine_section() {
         e.classList.add("select-button")
         s.appendChild(e)
     }
+
+    //Finally load the elements of the drum machine
+    load_elements_of_drum_machine()
 }
 
 function synth_section() {
@@ -206,6 +190,9 @@ function synth_section() {
         }
         document.querySelector(".keyboard").appendChild(e)
     }
+
+    //Finally load the elements of the synth
+    load_elements_of_synth()
 }
 
 
@@ -213,6 +200,53 @@ function synth_section() {
 //-----CONTROLLER-----
 let intervalId = 0
 
+
+function load_elements_of_drum_machine() {
+    //Keys click
+    const keys = document.querySelectorAll(".key")
+    keys.forEach((key, index) => {
+        key.addEventListener('click', function() {
+
+            //Play mode
+            if (edit_mode == -1) {
+                key_clicked(key, index)
+            }
+
+            //Edit mode
+            else {
+                edit_sample_seq(index, edit_mode)
+                play_sample(edit_mode)
+            }
+            
+        })
+    })
+
+    //Selector and edit mode
+    const selectors = document.querySelectorAll(".select-button")
+    selectors.forEach((selector, index) => {
+        selector.addEventListener('click', function (){
+            toggle_edit_mode(index)
+        })
+    })
+}
+
+function load_elements_of_synth() {
+    //Notes click
+    const notes = document.querySelectorAll(".note")
+    notes.forEach((note, index) => {
+        note.addEventListener('click', function() {
+
+            //Get the step number and note number
+            step_index = Math.floor(index / nb_keys)
+            note_index = index % nb_keys
+
+            if (notes_seqs[step_index][note_index] == 0) {
+                notes_seqs[step_index][note_index] = 1
+            }
+
+        })
+    })
+}
 
 function incr() {
     render()
