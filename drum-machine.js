@@ -100,18 +100,23 @@ function one_led_on(led, keep_on=false) {
 }
 
 function all_led_off() {
+    let leds = document.querySelectorAll(".step-led")
+    leds.forEach(led => led.classList.remove("step-led-on"))
+}
+
+function sample_led_off() {
     let leds = document.querySelectorAll(".led")
     leds.forEach(led => led.classList.remove("led-on"))
 }
 
 function render() {
-    let leds = document.querySelectorAll(".led")
+    let leds = document.querySelectorAll(".step-led")
     all_led_off()
-    leds[counter].classList.add("led-on")
+    leds[counter].classList.add("step-led-on")
 }
 
 function render_leds_edit(edit_sample_index) {
-    all_led_off()
+    sample_led_off()
     let steps_on = sample_seqs[edit_sample_index]
     let keys = document.querySelectorAll(".key")
     keys.forEach((key, index) => {
@@ -134,6 +139,10 @@ function drum_machine_section() {
     }
 
     //Add the keyboard section
+    let leds = document.createElement("div")
+    leds.classList.add("step-leds")
+    p.appendChild(leds)
+
     let k = document.createElement("div")
     k.classList.add("keyboard")
     p.appendChild(k)
@@ -146,6 +155,7 @@ function drum_machine_section() {
     //Create keys and selectors
     let e
     let l
+    let step_led
     for(let i=0; i<nb_keys; i++){
         e = document.createElement("div")
         e.classList.add("key")
@@ -157,6 +167,11 @@ function drum_machine_section() {
         e = document.createElement("div")
         e.classList.add("select-button")
         s.appendChild(e)
+        //Create step leds
+        step_led = document.createElement("div")
+        step_led.classList.add("step-led")
+        leds.appendChild(step_led)
+
     }
 
     //Finally load the elements of the drum machine
@@ -250,9 +265,13 @@ function load_elements_of_synth() {
 
 function incr() {
     render()
+    let sample_leds = document.querySelectorAll(".led")
     for(let i=0; i<sample_seqs.length; i++){
         if (sample_seqs[i][counter] == 1){
             play_sample(i)
+            if (edit_mode == -1) {
+                one_led_on(sample_leds[i])
+            }
         }
     }
     counter = (counter+1) % nb_keys
@@ -266,6 +285,7 @@ function play_seq() {
 function stop_seq() {
     clearInterval(intervalId)
     all_led_off()
+    sample_led_off()
     counter = 0
 }
 
@@ -278,7 +298,7 @@ function toggle_edit_mode(index) {
     disable_all_select_buttons()
     if(edit_mode == index || index == -1){
         edit_mode = -1
-        all_led_off()
+        sample_led_off()
     }else{
         edit_mode = index
         render_leds_edit(edit_mode)
