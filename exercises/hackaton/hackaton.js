@@ -5,11 +5,11 @@ import "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"
 document.addEventListener('DOMContentLoaded', function() {
 
     const tempoSlider = document.getElementById("tempo-slider");
-
-    const playBtn = document.getElementById("play-button");
-    playBtn.addEventListener('click', function() {
-        play(tempoSlider)
-    })
+    tempoSlider.addEventListener('input', (e) => {
+      const tempo = parseInt(e.target.value);
+      Tone.Transport.bpm.value = tempo;
+      bpmDisplay.textContent = `${tempo} BPM`;
+  });
 
     const playIntroBtn = document.getElementById("play-intro");
     playIntroBtn.addEventListener('click', function() {
@@ -37,8 +37,6 @@ document.addEventListener('DOMContentLoaded', function() {
     })
     
 });
-
-
 
 //Sequences of notes and chords
 const arpSequence = [
@@ -466,8 +464,8 @@ function play(tempo) {
 
   const introDurationSec = 24*4*(60/tempo.value);
   Tone.Transport.scheduleOnce((time) => {
-    playBuildup(tempo);
-  }, introDurationSec+1);
+    playBuildup(tempo, time);
+  }, introDurationSec);
 
   const buildupDurationSec = 8*4*(60/tempo.value);
   Tone.Transport.scheduleOnce((time) => {
