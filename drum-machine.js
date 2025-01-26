@@ -209,9 +209,10 @@ function drum_machine_section() {
         l.classList.add("led")
         e.appendChild(l)
         k.appendChild(e)
-        //Create selector
+        //Create selectors
         e = document.createElement("div")
         e.classList.add("select-button")
+        e.textContent = "S"
         s.appendChild(e)
         //Create step leds
         step_led = document.createElement("div")
@@ -271,6 +272,12 @@ function synth_section() {
     //Finally load the elements of the synth
     load_elements_of_synth()
 }
+
+
+function synth_controls_section() {
+
+}
+
 
 
 function toggle_all_highlight_notes(){
