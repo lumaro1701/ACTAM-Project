@@ -108,6 +108,14 @@ for(let i=0; i<notes_seqs.length; i++){
 
 
 //-----VIEW-----
+
+let timeoutIds = []
+//CLear all the timers to avoid bugs
+function stop_all_timers() {
+    timeoutIds.forEach(id => clearTimeout(id))
+    timeoutIds = []
+}
+
 function switch_mode(){
     if (mode == 0){
         synth_section()
@@ -120,36 +128,44 @@ function switch_mode(){
 }
 
 function one_led_on(led, keep_on=false) {
-    led.classList.toggle("led-on");
+    led.classList.add("led-on");
     if (!keep_on) {
-        setTimeout(function() {
-            led.classList.toggle("led-on");
-        }, (60/BPM)/4*1000)
+        var timeoutId = setTimeout(function() {
+            led.classList.remove("led-on");
+            //Remove the timer from the list of timers if it's still there
+            let index = timeoutIds.indexOf(timeoutId);
+            if (index !== -1){
+                timeoutIds.splice(index, 1)
+            }
+        }, (60/BPM)/4*1000 - 10)
+        timeoutIds.push(timeoutId)
     }
+    console.log(timeoutIds)
 }
 
-function all_led_off() {
+function all_step_led_off() {
     let leds = document.querySelectorAll(".step-led")
     leds.forEach(led => led.classList.remove("step-led-on"))
 }
 
-function sample_led_off() {
+function all_sample_led_off() {
     let leds = document.querySelectorAll(".led")
     leds.forEach(led => led.classList.remove("led-on"))
 }
 
-function render() {
+function render_step_leds() {
     let leds = document.querySelectorAll(".step-led")
-    all_led_off()
+    all_step_led_off()
     leds[counter].classList.add("step-led-on")
 }
 
 function render_leds_edit(edit_sample_index) {
-    sample_led_off()
+    all_sample_led_off()
     let steps_on = sample_seqs[edit_sample_index]
     let keys = document.querySelectorAll(".key")
     keys.forEach((key, index) => {
         if (steps_on[index] == 1){
+            stop_all_timers()
             one_led_on(key.children[0], true)
         }
     })
@@ -243,6 +259,10 @@ function synth_section() {
         for(let i=0; i<12; i++){
             n = document.createElement("div")
             n.classList.add("note");
+            //Black notes
+            if (i == 1 || i == 3 || i == 6 || i == 8 || i == 10){
+                n.classList.add("black_note");
+            }
             e.appendChild(n)
         }
         document.querySelector(".keyboard").appendChild(e)
@@ -372,7 +392,10 @@ function load_elements_of_drum_machine() {
             //Edit mode
             else {
                 edit_sample_seq(index, edit_mode)
-                play_sample(edit_mode)
+                //Play the sample only if it has been activated (not deactivated)
+                if (sample_seqs[index][edit_mode] == 1) {
+                    play_sample(edit_mode)
+                }
             }
             
         })
@@ -399,40 +422,40 @@ function load_elements_of_synth() {
     })
 }
 
-function incr() {
-    render()
-    let sample_leds = document.querySelectorAll(".led")
-    for(let i=0; i<sample_seqs.length; i++){
-        if (sample_seqs[i][counter] == 1){
-            play_sample(i)
-            if (edit_mode == -1) {
-                one_led_on(sample_leds[i])
-            }
-        }
-    }
-
-    for (let j=0; j<MAX_OCTAVE; j++){
-        for (let i=counter*12; i<counter*12+12; i++) {
-            let true_idx = j*12*NB_STEPS + i
-
-            if (notes_seqs[true_idx] == 1) {
-                play_note(true_idx)
-            }
-        }
-    }
-    
-    counter = (counter+1) % NB_STEPS
-}
-
 function play_seq() {
-    intervalId = setInterval(incr, (60/BPM)/4*1000)
-    toggle_edit_mode(-1)
+    intervalId = setInterval(function incr() {
+        render_step_leds()
+        let sample_leds = document.querySelectorAll(".led")
+        for(let i=0; i<sample_seqs.length; i++){
+            if (sample_seqs[i][counter] == 1){
+                play_sample(i)
+                if (edit_mode == -1) {
+                    one_led_on(sample_leds[i])
+                }
+            }
+        }
+    
+        for (let j=0; j<MAX_OCTAVE; j++){
+            for (let i=counter*12; i<counter*12+12; i++) {
+                let true_idx = j*12*NB_STEPS + i
+    
+                if (notes_seqs[true_idx] == 1) {
+                    play_note(true_idx)
+                }
+            }
+        }
+        
+        counter = (counter+1) % NB_STEPS
+    }, (60/BPM)/4*1000)
 }
 
 function stop_seq() {
     clearInterval(intervalId)
-    all_led_off()
-    sample_led_off()
+    stop_all_timers()
+    all_step_led_off()
+    if (edit_mode == -1){
+        all_sample_led_off()
+    }
     counter = 0
 }
 
@@ -445,9 +468,10 @@ function toggle_edit_mode(index) {
     disable_all_select_buttons()
     if(edit_mode == index || index == -1){
         edit_mode = -1
-        sample_led_off()
+        all_sample_led_off()
     }else{
         edit_mode = index
+        all_sample_led_off()
         render_leds_edit(edit_mode)
         document.querySelectorAll(".select-button")[index].style.backgroundColor = "#ff0000"
     }

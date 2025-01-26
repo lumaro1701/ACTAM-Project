@@ -152,8 +152,12 @@
     width: 100%;
     border-radius: 8px;
     margin: auto;
-    border: 2px solid rgb(91, 91, 91);
+    border: 2px solid grey;
     cursor: pointer;
+}
+
+.black_note {
+    background-color: rgb(16, 16, 16);
 }
 
 .led-on {
