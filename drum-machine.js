@@ -1,3 +1,5 @@
+import "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"
+
 console.log("This is my drum machine");
 
 //Waiting for the HTML content to be loaded
@@ -6,14 +8,32 @@ document.addEventListener('DOMContentLoaded', function() {
     //Creation of the keys of the drum machine
     drum_machine_section()
 
-    //Load elements of the control section
-    const mode_button = document.querySelector("#mode_button")
+    //Load mode button
+    const mode_button = document.getElementById("mode_button")
     mode_button.addEventListener('click', function() {
         switch_mode()
+        update_mode_button()
     })
 
+    //Load octave buttons
+    const octave_down = document.getElementById("octave_down")
+    octave_down.addEventListener('click', function() {
+        change_octave(-1)
+    })
+    const octave_up = document.getElementById("octave_up")
+    octave_up.addEventListener('click', function() {
+        change_octave(1)
+    })
+
+    //Tempo knob and screen
+    const tempo_button = document.getElementById('tempo_button')
+    const screen = document.getElementById('screen')
+    tempo_knob_rotation(tempo_button, screen);
+    screen.textContent = `${BPM}`;
+
+
     //Play/pause button
-    const play_button = document.querySelector("#play_button")
+    const play_button = document.getElementById("play_button")
     play_button.addEventListener('click', function() {
 
         if(play == 0){
@@ -22,17 +42,25 @@ document.addEventListener('DOMContentLoaded', function() {
             stop_seq()
         }
         play = 1 - play
+        update_play_button()
     })
 });
+
+
+
+
+
+
 
 
 
 //-----MODEL-----
 let counter = 0
 
-
-let bpm = 120
-let beat = 60/bpm
+//Min BPM, max BPM and starting BPM
+let MIN_BPM = 20
+let MAX_BPM = 250
+let BPM = Math.round(MIN_BPM+(MAX_BPM-MIN_BPM)/2)
 
 //Play mode (drum machine or synth)
 let mode = 0
@@ -42,12 +70,16 @@ let play = 0
 let edit_mode = -1
 
 
-let octave = 3
+let OCTAVE = 3
+let MAX_OCTAVE = 7
 
-let nb_keys = 16
+let NB_STEPS = 16
 
 //Create the audio context
 const audio_context = new AudioContext()
+
+//Remove the slight delay when triggering a note with ToneJS
+Tone.context.lookAhead = 0
 
 //Paths to samples for the drum machine
 const samples = [
@@ -60,29 +92,26 @@ const samples = [
 ]
 
 //2D array for the drum machine step sequencer
-let sample_seqs = Array(nb_keys)
+let sample_seqs = Array(NB_STEPS)
 for(let i=0; i<sample_seqs.length; i++){
-    sample_seqs[i] = Array(nb_keys)
+    sample_seqs[i] = Array(NB_STEPS)
     for(let j=0; j<sample_seqs[i].length; j++){
         sample_seqs[i][j] = 0
     }
 }
 
-//2D array for the step sequencer
-let notes_seqs = Array(nb_keys)
+//Array for the step sequencer
+let notes_seqs = Array(NB_STEPS*12*MAX_OCTAVE)
 for(let i=0; i<notes_seqs.length; i++){
-    notes_seqs[i] = Array(7*12)
-    for(let j=0; j<notes_seqs[i].length; j++){
-        notes_seqs[i][j] = 0
-    }
+    notes_seqs[i] = 0
 }
-
 
 
 //-----VIEW-----
 function switch_mode(){
     if (mode == 0){
         synth_section()
+        toggle_all_highlight_notes()
     }else{
         drum_machine_section()
     }
@@ -95,7 +124,7 @@ function one_led_on(led, keep_on=false) {
     if (!keep_on) {
         setTimeout(function() {
             led.classList.toggle("led-on");
-        }, beat/4*1000)
+        }, (60/BPM)/4*1000)
     }
 }
 
@@ -138,11 +167,12 @@ function drum_machine_section() {
         p.firstChild.remove(); 
     }
 
-    //Add the keyboard section
+    //Add the step leds section
     let leds = document.createElement("div")
     leds.classList.add("step-leds")
     p.appendChild(leds)
 
+    //Add the keyboard section
     let k = document.createElement("div")
     k.classList.add("keyboard")
     p.appendChild(k)
@@ -156,7 +186,7 @@ function drum_machine_section() {
     let e
     let l
     let step_led
-    for(let i=0; i<nb_keys; i++){
+    for(let i=0; i<NB_STEPS; i++){
         e = document.createElement("div")
         e.classList.add("key")
         l = document.createElement("div")
@@ -186,12 +216,24 @@ function synth_section() {
         p.firstChild.remove(); 
     }
 
+    //Add the step leds section
+    let leds = document.createElement("div")
+    leds.classList.add("step-leds")
+    p.appendChild(leds)
+
     //Add the keyboard section
     let k = document.createElement("div")
     k.classList.add("keyboard")
+    k.style.height = "90%"
     p.appendChild(k)
 
-    for(let i=0; i<nb_keys; i++){
+    let step_led
+    for(let i=0; i<NB_STEPS; i++){
+        //Create step leds
+        step_led = document.createElement("div")
+        step_led.classList.add("step-led")
+        leds.appendChild(step_led)
+
         //Create columns of the grid (steps)
         let e = document.createElement("div")
         e.classList.add("step")
@@ -211,9 +253,109 @@ function synth_section() {
 }
 
 
+function toggle_all_highlight_notes(){
+    const notes = document.querySelectorAll(".note")
+    notes.forEach((note, index) => {
+        let true_idx = NB_STEPS*12*OCTAVE + index
+
+        if (notes_seqs[true_idx] == 1){
+            note.style.backgroundColor = "#ff0000"
+        } else {
+            note.style.backgroundColor = ""
+        }
+
+    });
+}
+
+
+function update_octave_buttons(){
+    let octave_down = document.getElementById('octave_down')
+    let octave_up = document.getElementById('octave_up')
+
+    if(OCTAVE == 0) {
+        octave_down.style.backgroundColor = "#d40000"
+        octave_up.style.backgroundColor = ""
+    }if(OCTAVE == 1) {
+        octave_down.style.backgroundColor = "#d47600"
+        octave_up.style.backgroundColor = ""
+    }if(OCTAVE == 2) {
+        octave_down.style.backgroundColor = "#e9e302"
+        octave_up.style.backgroundColor = ""
+    }if(OCTAVE == 3) {
+        octave_down.style.backgroundColor = ""
+        octave_up.style.backgroundColor = ""
+    }if(OCTAVE == 4) {
+        octave_down.style.backgroundColor = ""
+        octave_up.style.backgroundColor = "#e9e302"
+    }if(OCTAVE == 5) {
+        octave_down.style.backgroundColor = ""
+        octave_up.style.backgroundColor = "#d47600"
+    }if(OCTAVE == 6) {
+        octave_down.style.backgroundColor = ""
+        octave_up.style.backgroundColor = "#d40000"
+    }
+}
+
+
+function update_play_button(){
+    let play_button = document.getElementById("play_button")
+    if (play == 0){
+        play_button.style.backgroundColor = ""
+        play_button.src = "assets/play.svg"
+    } else {
+        play_button.style.backgroundColor = "#d47600"
+        play_button.src = "assets/pause.svg"
+    }
+}
+
+function update_mode_button(){
+    let mode_button = document.getElementById("mode_button")
+    if (mode == 0){
+        mode_button.src = "assets/keyboard.svg"
+    } else {
+        mode_button.src = "assets/drum.svg"
+    }
+}
+
 
 //-----CONTROLLER-----
 let intervalId = 0
+
+function tempo_knob_rotation(knob, screen) {
+    let currentRotation = 0; // Track the current rotation angle
+    
+    // Rotation limits
+    const MIN_ROTATION = -145;
+    const MAX_ROTATION = 145;
+  
+    // Listen for the wheel event to rotate the knob
+    knob.addEventListener('wheel', (e) => {
+        // Prevent default scroll behavior (optional if you don't want the page to scroll)
+        e.preventDefault();
+    
+        // Determine the scroll direction (wheel delta)
+        const delta = e.deltaY; // Positive for scrolling down, negative for scrolling up
+    
+        // Adjust rotation based on wheel movement
+        let newRotation = currentRotation + (delta / 5); // Adjust speed here by changing divisor
+    
+        // Clamp the rotation to the bounds
+        if (newRotation < MIN_ROTATION) {
+            newRotation = MIN_ROTATION;
+        } else if (newRotation > MAX_ROTATION) {
+            newRotation = MAX_ROTATION;
+        }
+    
+        // Apply the new rotation to the knob
+        knob.style.transform = `rotate(${newRotation}deg)`;
+    
+        // Update the current rotation for future calculations
+        currentRotation = newRotation;
+        BPM = Math.round((MAX_BPM-MIN_BPM)/(MAX_ROTATION-MIN_ROTATION)*currentRotation + MIN_BPM+(MAX_BPM-MIN_BPM)/2)
+        screen.textContent = `${BPM}`;
+    });
+  }
+
 
 
 function load_elements_of_drum_machine() {
@@ -251,13 +393,7 @@ function load_elements_of_synth() {
     notes.forEach((note, index) => {
         note.addEventListener('click', function() {
 
-            //Get the step number and note number
-            step_index = Math.floor(index / nb_keys)
-            note_index = index % nb_keys
-
-            if (notes_seqs[step_index][note_index] == 0) {
-                notes_seqs[step_index][note_index] = 1
-            }
+            toggle_note_synth(index)
 
         })
     })
@@ -274,11 +410,22 @@ function incr() {
             }
         }
     }
-    counter = (counter+1) % nb_keys
+
+    for (let j=0; j<MAX_OCTAVE; j++){
+        for (let i=counter*12; i<counter*12+12; i++) {
+            let true_idx = j*12*NB_STEPS + i
+
+            if (notes_seqs[true_idx] == 1) {
+                play_note(true_idx)
+            }
+        }
+    }
+    
+    counter = (counter+1) % NB_STEPS
 }
 
 function play_seq() {
-    intervalId = setInterval(incr, beat/4*1000)
+    intervalId = setInterval(incr, (60/BPM)/4*1000)
     toggle_edit_mode(-1)
 }
 
@@ -303,8 +450,21 @@ function toggle_edit_mode(index) {
         edit_mode = index
         render_leds_edit(edit_mode)
         document.querySelectorAll(".select-button")[index].style.backgroundColor = "#ff0000"
-        //document.querySelectorAll(".select-button")[index].textContent = "S"
     }
+}
+
+function toggle_note_synth(index){
+    let true_idx = NB_STEPS*12*OCTAVE + index
+    
+    if (notes_seqs[true_idx] == 0) {
+        notes_seqs[true_idx] = 1
+        play_note(true_idx)
+    } else {
+        notes_seqs[true_idx] = 0
+    }
+
+    toggle_all_highlight_notes()
+
 }
 
 
@@ -312,15 +472,23 @@ function key_clicked(key, key_index) {
     one_led_on(key.children[0])
     if(mode == 0){
         play_sample(key_index)
-    }else{
-        play_note(key, key_index)
     }
 }
+
+
+function change_octave(nb){
+    if(OCTAVE+nb >= 0 && OCTAVE+nb <= 6){
+        OCTAVE += nb
+        update_octave_buttons()
+        toggle_all_highlight_notes()
+    }
+}
+
 
 function play_sample(sample_index){
     if(sample_index < samples.length){
         //Loading audio samples in a buffer
-        var audioFile = fetch(samples[sample_index]).then(response => response.arrayBuffer()).then(buffer => audio_context.decodeAudioData(buffer)).then(buffer => {
+        fetch(samples[sample_index]).then(response => response.arrayBuffer()).then(buffer => audio_context.decodeAudioData(buffer)).then(buffer => {
             var track = audio_context.createBufferSource();
             track.buffer = buffer;
             track.connect(audio_context.destination);
@@ -329,11 +497,29 @@ function play_sample(sample_index){
     }
 }
 
-function play_note(key, key_index) {
-    let osc = audio_context.createOscillator()
-    osc.connect(audio_context.destination)
-    osc.frequency.setValueAtTime((32.70*2**(key_index/12+octave)), audio_context.currentTime)
+function play_note(key_index) {
 
-    osc.start()
-    setTimeout(function() {osc.stop()}, 200)
+    let note = convert_to_note_and_octave(key_index)
+
+    let synth = new Tone.Synth({
+        oscillator: {
+          type: "triangle"
+        },
+        envelope: {
+          attack: 0.001,
+          decay: 0.2,
+          sustain: 0,
+          release: 0.2,
+        },
+    }).toDestination();
+
+    synth.triggerAttackRelease(note);
+}
+
+
+function convert_to_note_and_octave(key_index){
+    let chroma_scale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+    let note = chroma_scale[key_index % 12]
+    let octave = Math.floor(key_index / (12*NB_STEPS))
+    return note+octave.toString()
 }
