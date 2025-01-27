@@ -109,6 +109,27 @@ for(let i=0; i<notes_seqs.length; i++){
 }
 
 
+//Synth elements parameters
+let osc1_param = {
+    waveform: "sawtooth",
+};
+
+let osc2_param = {
+    waveform: "sawtooth",
+};
+
+let lfo_param = {
+    waveform: "sine",
+};
+
+let amp_envelope_param = {
+    attack: 0.001,
+    decay: 0.5,
+    sustain: 0,
+    release: 0.2,
+};
+
+
 //-----VIEW-----
 
 let timeoutIds = []
@@ -225,7 +246,7 @@ function drum_machine_section() {
     }
 
     //Finally load the elements of the drum machine
-    load_elements_of_drum_machine()
+    load_drum_machine_play_section()
 }
 
 function drum_machine_controls_section() {
@@ -282,7 +303,7 @@ function synth_section() {
     }
 
     //Finally load the elements of the synth
-    load_elements_of_synth()
+    load_synth_play_section()
 }
 
 
@@ -320,7 +341,7 @@ function synth_controls_section() {
     waveform_btn_osc1.draggable = false
     waveform_btn_osc1.classList.add("rotate-button")
     waveform_btn_osc1.classList.add("margin-rotate-btn")
-    waveform_btn_osc1.src = "assets/saw-wave.svg"
+    waveform_btn_osc1.src = "assets/sawtooth-wave.svg"
     osc1.appendChild(waveform_btn_osc1)
 
     let pitch_text_osc1 = document.createElement("div")
@@ -354,7 +375,7 @@ function synth_controls_section() {
     waveform_btn_osc2.draggable = false
     waveform_btn_osc2.classList.add("rotate-button")
     waveform_btn_osc2.classList.add("margin-rotate-btn")
-    waveform_btn_osc2.src = "assets/saw-wave.svg"
+    waveform_btn_osc2.src = "assets/sawtooth-wave.svg"
     osc2.appendChild(waveform_btn_osc2)
 
     let cycle_text_osc2 = document.createElement("div")
@@ -492,6 +513,9 @@ function synth_controls_section() {
     b.appendChild(right)
 
 
+    load_synth_button_section()
+
+
 }
 
 
@@ -560,6 +584,24 @@ function update_mode_button(){
     }
 }
 
+function update_osc_waveform_button(osc) {
+    if (osc == 1) {
+        var waveform_btn = document.getElementById("osc1_waveform_selector")
+        var new_waveform = osc1_param["waveform"]
+    }
+    if (osc == 2) {
+        var waveform_btn = document.getElementById("osc2_waveform_selector")
+        var new_waveform = osc2_param["waveform"]
+    }
+    //LFO
+    if (osc == 3) {
+        var waveform_btn = document.getElementById("lfo_waveform_selector")
+        var new_waveform = lfo_param["waveform"]
+    }
+
+    waveform_btn.src = "assets/"+new_waveform+"-wave.svg"
+}
+
 
 //-----CONTROLLER-----
 let intervalId = 0
@@ -601,7 +643,7 @@ function tempo_knob_rotation(knob, screen) {
 
 
 
-function load_elements_of_drum_machine() {
+function load_drum_machine_play_section() {
     //Keys click
     const keys = document.querySelectorAll(".key")
     keys.forEach((key, index) => {
@@ -633,7 +675,7 @@ function load_elements_of_drum_machine() {
     })
 }
 
-function load_elements_of_synth() {
+function load_synth_play_section() {
     //Notes click
     const notes = document.querySelectorAll(".note")
     notes.forEach((note, index) => {
@@ -644,6 +686,51 @@ function load_elements_of_synth() {
         })
     })
 }
+
+
+function load_drum_machine_button_section() {
+
+}
+
+
+function load_synth_button_section() {
+
+    //Waveform buttons
+    let waveform_buttons = []
+    waveform_buttons.push(document.getElementById("osc1_waveform_selector"))
+    waveform_buttons.push(document.getElementById("osc2_waveform_selector"))
+    waveform_buttons.push(document.getElementById("lfo_waveform_selector"))
+
+    for (let i=0; i<waveform_buttons.length; i++) {
+        waveform_buttons[i].addEventListener('click', function() {
+            change_osc_waveform(i+1)
+        })
+    }
+
+
+
+
+}
+
+
+function change_osc_waveform(osc) {
+    let waveforms = ["sawtooth", "triangle", "square", "sine"]
+    if (osc == 1){
+        let index = waveforms.indexOf(osc1_param["waveform"]);
+        osc1_param["waveform"] = waveforms[(index+1) % waveforms.length]
+    }
+    if (osc == 2){
+        let index = waveforms.indexOf(osc2_param["waveform"]);
+        osc2_param["waveform"] = waveforms[(index+1) % waveforms.length]
+    }
+    //LFO
+    if (osc == 3){
+        let index = waveforms.indexOf(lfo_param["waveform"]);
+        lfo_param["waveform"] = waveforms[(index+1) % waveforms.length]
+    }
+    update_osc_waveform_button(osc)
+}
+
 
 function play_seq() {
     intervalId = setInterval(function incr() {
@@ -748,19 +835,38 @@ function play_note(key_index) {
 
     let note = convert_to_note_and_octave(key_index)
 
-    let synth = new Tone.Synth({
+    let osc1 = new Tone.Synth({
         oscillator: {
-          type: "triangle"
+          type: osc1_param["waveform"]
         },
         envelope: {
-          attack: 0.001,
-          decay: 0.2,
-          sustain: 0,
-          release: 0.2,
+          attack: amp_envelope_param["attack"],
+          decay: amp_envelope_param["decay"],
+          sustain: amp_envelope_param["sustain"],
+          release: amp_envelope_param["release"],
         },
     }).toDestination();
 
-    synth.triggerAttackRelease(note);
+    let osc2 = new Tone.Synth({
+        oscillator: {
+          type: osc2_param["waveform"]
+        },
+        envelope: {
+          attack: amp_envelope_param["attack"],
+          decay: amp_envelope_param["decay"],
+          sustain: amp_envelope_param["sustain"],
+          release: amp_envelope_param["release"],
+        },
+    }).toDestination();
+
+    osc1.triggerAttackRelease(note);
+    osc2.triggerAttackRelease(note);
+
+    //Dispose the osc to avoid overload
+    setTimeout(() => {
+        osc1.dispose();
+        osc2.dispose();
+    }, 5000);
 }
 
 
