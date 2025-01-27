@@ -5,7 +5,7 @@
 
 @font-face{
     font-family:'digital-clock-font';
-    src: url('assets/digital-clock-2.ttf');
+    src: url('assets/digital-clock.ttf');
    }
 
 .root {
@@ -22,8 +22,31 @@
     margin: auto;
 }
 
+
+/* --- General --- */
+.rotate-button {
+    height: 50px;
+    width: 50px;
+    border-radius: 30px;
+    background-color: #676767;
+    border: none;
+    cursor: pointer;
+}
+
+.mini-rotate-button {
+    height: 40px;
+    width: 40px;
+    border-radius: 30px;
+    background-color: #676767;
+    border: none;
+    cursor: pointer;
+}
+
+
+
+/* --- Button and knobs section --- */
 .buttons {
-    border: 3px solid black;
+    background-color: rgb(82, 61, 42);
     height: 35%;
     width: 90%;
     padding: 10px;
@@ -32,8 +55,94 @@
     margin: auto;
 }
 
-.controls {
+.left-buttons {
     border: 3px solid black;
+    width: 55%;
+    display: flex;
+    flex-direction: column;
+}
+
+.right-buttons {
+    border: 3px solid black;
+    width: 45%;
+    display: flex;
+}
+
+.up-left-buttons {
+    border: 3px solid black;
+    width: 100%;
+    height: 65%;
+    display: flex;
+}
+
+.header-section {
+    margin-bottom: 10px;
+    font-size: 110%;
+}
+
+.text-button {
+    font-size: 80%;
+}
+
+#osc1 {
+    width: 100%;
+    height: 100%;
+    color: rgb(190, 190, 190);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.margin-rotate-btn {
+    margin-bottom: 12px;
+}
+
+.margin-mini-rotate-btn {
+    margin-bottom: 22px;
+}
+
+#osc2 {
+    width: 100%;
+    height: 100%;
+    color: rgb(190, 190, 190);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#mixer {
+    width: 100%;
+    height: 100%;
+    color: rgb(190, 190, 190);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#lfo {
+    width: 100%;
+    height: 100%;
+    color: rgb(190, 190, 190);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#lpf {
+    width: 100%;
+    height: 100%;
+    color: rgb(190, 190, 190);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+
+
+
+
+/* --- Controls section --- */
+.controls {
     height: 7%;
     width: 90%;
     padding: 10px;
@@ -95,15 +204,15 @@
 
 }
 
-.rotate-button {
-    height: 50px;
-    width: 50px;
-    border-radius: 30px;
-    background-color: #ff4444;
-    border: none;
-    cursor: pointer;
+#tempo_button {
+    background-color: #ff2e2e !important;
 }
 
+
+
+
+
+/* --- Play section --- */
 .play-section {
     background-color: grey;
     height: 45%;
@@ -177,7 +286,7 @@
     cursor: pointer;
 }
 
-.black_note {
+.black-note {
     background-color: rgb(16, 16, 16);
 }
 

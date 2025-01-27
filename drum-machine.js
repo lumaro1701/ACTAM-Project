@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
     //Creation of the keys of the drum machine
     drum_machine_section()
 
+    //Creation of the button section of the drum machine
+    drum_machine_controls_section()
+
     //Load mode button
     const mode_button = document.getElementById("mode_button")
     mode_button.addEventListener('click', function() {
@@ -44,10 +47,9 @@ document.addEventListener('DOMContentLoaded', function() {
         play = 1 - play
         update_play_button()
     })
+
+
 });
-
-
-
 
 
 
@@ -119,9 +121,11 @@ function stop_all_timers() {
 function switch_mode(){
     if (mode == 0){
         synth_section()
+        synth_controls_section()
         toggle_all_highlight_notes()
     }else{
         drum_machine_section()
+        drum_machine_controls_section()
     }
     toggle_edit_mode(-1)
     mode = 1 - mode
@@ -225,6 +229,15 @@ function drum_machine_section() {
     load_elements_of_drum_machine()
 }
 
+function drum_machine_controls_section() {
+    var b = document.querySelector(".buttons");
+
+    //Remove all previous sections
+    while (b.firstChild) {
+        b.firstChild.remove(); 
+    }
+}
+
 function synth_section() {
     var p = document.querySelector(".play-section");
 
@@ -262,7 +275,7 @@ function synth_section() {
             n.classList.add("note");
             //Black notes
             if (i == 1 || i == 3 || i == 6 || i == 8 || i == 10){
-                n.classList.add("black_note");
+                n.classList.add("black-note");
             }
             e.appendChild(n)
         }
@@ -275,6 +288,210 @@ function synth_section() {
 
 
 function synth_controls_section() {
+    var b = document.querySelector(".buttons");
+
+    //Remove all previous sections
+    while (b.firstChild) {
+        b.firstChild.remove(); 
+    }
+
+    //Left section
+    let left = document.createElement("div")
+    left.classList.add("left-buttons")
+
+    let upLeft = document.createElement("div")
+    upLeft.classList.add("up-left-buttons")
+
+
+    //OSC1 section
+    let osc1 = document.createElement("div")
+    osc1.id = "osc1"
+    let header_osc1 = document.createElement("div")
+    header_osc1.classList.add("header-section")
+    header_osc1.textContent = "OSC 1"
+    osc1.appendChild(header_osc1)
+
+    let waveform_text_osc1 = document.createElement("div")
+    waveform_text_osc1.classList.add("text-button")
+    waveform_text_osc1.textContent = "WAVEFORM"
+    osc1.appendChild(waveform_text_osc1)
+
+    let waveform_btn_osc1 = document.createElement("img")
+    waveform_btn_osc1.id = "osc1_waveform_selector"
+    waveform_btn_osc1.draggable = false
+    waveform_btn_osc1.classList.add("rotate-button")
+    waveform_btn_osc1.classList.add("margin-rotate-btn")
+    waveform_btn_osc1.src = "assets/saw-wave.svg"
+    osc1.appendChild(waveform_btn_osc1)
+
+    let pitch_text_osc1 = document.createElement("div")
+    pitch_text_osc1.classList.add("text-button")
+    pitch_text_osc1.textContent = "PITCH"
+    osc1.appendChild(pitch_text_osc1)
+
+    let pitch_btn_osc1 = document.createElement("img")
+    pitch_btn_osc1.id = "osc1_pitch_knob"
+    pitch_btn_osc1.draggable = false
+    pitch_btn_osc1.classList.add("mini-rotate-button")
+    pitch_btn_osc1.src = "assets/knob.svg"
+    osc1.appendChild(pitch_btn_osc1)
+
+
+    //OSC2 section
+    let osc2 = document.createElement("div")
+    osc2.id = "osc2"
+    let header_osc2 = document.createElement("div")
+    header_osc2.classList.add("header-section")
+    header_osc2.textContent = "OSC 2"
+    osc2.appendChild(header_osc2)
+
+    let waveform_text_osc2 = document.createElement("div")
+    waveform_text_osc2.classList.add("text-button")
+    waveform_text_osc2.textContent = "WAVEFORM"
+    osc2.appendChild(waveform_text_osc2)
+
+    let waveform_btn_osc2 = document.createElement("img")
+    waveform_btn_osc2.id = "osc2_waveform_selector"
+    waveform_btn_osc2.draggable = false
+    waveform_btn_osc2.classList.add("rotate-button")
+    waveform_btn_osc2.classList.add("margin-rotate-btn")
+    waveform_btn_osc2.src = "assets/saw-wave.svg"
+    osc2.appendChild(waveform_btn_osc2)
+
+    let cycle_text_osc2 = document.createElement("div")
+    cycle_text_osc2.classList.add("text-button")
+    cycle_text_osc2.textContent = "DUTY CYCLE"
+    osc2.appendChild(cycle_text_osc2)
+
+    let cycle_btn_osc2 = document.createElement("img")
+    cycle_btn_osc2.id = "osc2_cycle_knob"
+    cycle_btn_osc2.draggable = false
+    cycle_btn_osc2.classList.add("mini-rotate-button")
+    cycle_btn_osc2.src = "assets/knob.svg"
+    osc2.appendChild(cycle_btn_osc2)
+
+
+    //Mixer section
+    let mixer = document.createElement("div")
+    mixer.id = "mixer"
+    let header_mixer = document.createElement("div")
+    header_mixer.classList.add("header-section")
+    header_mixer.textContent = "MIXER"
+    mixer.appendChild(header_mixer)
+
+    let osc1_vol_text = document.createElement("div")
+    osc1_vol_text.classList.add("text-button")
+    osc1_vol_text.textContent = "OSC 1"
+    mixer.appendChild(osc1_vol_text)
+
+    let osc1_vol_knob = document.createElement("img")
+    osc1_vol_knob.id = "osc1_vol_knob"
+    osc1_vol_knob.draggable = false
+    osc1_vol_knob.classList.add("mini-rotate-button")
+    osc1_vol_knob.classList.add("margin-mini-rotate-btn")
+    osc1_vol_knob.src = "assets/knob.svg"
+    mixer.appendChild(osc1_vol_knob)
+
+    let osc2_vol_text = document.createElement("div")
+    osc2_vol_text.classList.add("text-button")
+    osc2_vol_text.textContent = "OSC 2"
+    mixer.appendChild(osc2_vol_text)
+
+    let osc2_vol_knob = document.createElement("img")
+    osc2_vol_knob.id = "osc2_vol_knob"
+    osc2_vol_knob.draggable = false
+    osc2_vol_knob.classList.add("mini-rotate-button")
+    osc2_vol_knob.src = "assets/knob.svg"
+    mixer.appendChild(osc2_vol_knob)
+
+
+    //LFO section
+    let lfo = document.createElement("div")
+    lfo.id = "lfo"
+    let header_lfo = document.createElement("div")
+    header_lfo.classList.add("header-section")
+    header_lfo.textContent = "LFO"
+    lfo.appendChild(header_lfo)
+
+    let waveform_text_lfo = document.createElement("div")
+    waveform_text_lfo.classList.add("text-button")
+    waveform_text_lfo.textContent = "WAVEFORM"
+    lfo.appendChild(waveform_text_lfo)
+
+    let waveform_btn_lfo = document.createElement("img")
+    waveform_btn_lfo.id = "lfo_waveform_selector"
+    waveform_btn_lfo.draggable = false
+    waveform_btn_lfo.classList.add("rotate-button")
+    waveform_btn_lfo.classList.add("margin-rotate-btn")
+    waveform_btn_lfo.src = "assets/sine-wave.svg"
+    lfo.appendChild(waveform_btn_lfo)
+
+    let rate_text_lfo = document.createElement("div")
+    rate_text_lfo.classList.add("text-button")
+    rate_text_lfo.textContent = "RATE"
+    lfo.appendChild(rate_text_lfo)
+
+    let rate_btn_lfo = document.createElement("img")
+    rate_btn_lfo.id = "lfo_rate_knob"
+    rate_btn_lfo.draggable = false
+    rate_btn_lfo.classList.add("mini-rotate-button")
+    rate_btn_lfo.src = "assets/knob.svg"
+    lfo.appendChild(rate_btn_lfo)
+
+
+    //LPF section
+    let lpf = document.createElement("div")
+    lpf.id = "lpf"
+    let header_lpf = document.createElement("div")
+    header_lpf.classList.add("header-section")
+    header_lpf.textContent = "LPF"
+    lpf.appendChild(header_lpf)
+
+    let cutoff_text_lpf = document.createElement("div")
+    cutoff_text_lpf.classList.add("text-button")
+    cutoff_text_lpf.textContent = "CUTOFF"
+    lpf.appendChild(cutoff_text_lpf)
+
+    let cutoff_btn_lpf = document.createElement("img")
+    cutoff_btn_lpf.id = "lfo_waveform_selector"
+    cutoff_btn_lpf.draggable = false
+    cutoff_btn_lpf.classList.add("rotate-button")
+    cutoff_btn_lpf.classList.add("margin-rotate-btn")
+    cutoff_btn_lpf.src = "assets/knob.svg"
+    lpf.appendChild(cutoff_btn_lpf)
+
+    let res_text_lpf = document.createElement("div")
+    res_text_lpf.classList.add("text-button")
+    res_text_lpf.textContent = "RESONANCE"
+    lpf.appendChild(res_text_lpf)
+
+    let res_btn_lpf = document.createElement("img")
+    res_btn_lpf.id = "lfo_rate_knob"
+    res_btn_lpf.draggable = false
+    res_btn_lpf.classList.add("mini-rotate-button")
+    res_btn_lpf.src = "assets/knob.svg"
+    lpf.appendChild(res_btn_lpf)
+
+
+
+    upLeft.append(osc1)
+    upLeft.append(osc2)
+    upLeft.append(mixer)
+    upLeft.append(lfo)
+    upLeft.append(lpf)
+
+    left.appendChild(upLeft)
+
+
+
+    //Right section
+    let right = document.createElement("div")
+    right.classList.add("right-buttons")
+
+
+    b.appendChild(left)
+    b.appendChild(right)
+
 
 }
 
