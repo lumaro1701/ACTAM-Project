@@ -658,7 +658,7 @@ function load_drum_machine_play_section() {
             else {
                 edit_sample_seq(index, edit_mode)
                 //Play the sample only if it has been activated (not deactivated)
-                if (sample_seqs[index][edit_mode] == 1) {
+                if (sample_seqs[edit_mode][index] == 1) {
                     play_sample(edit_mode)
                 }
             }
@@ -739,7 +739,7 @@ function play_seq() {
         for(let i=0; i<sample_seqs.length; i++){
             if (sample_seqs[i][counter] == 1){
                 play_sample(i)
-                if (edit_mode == -1) {
+                if (edit_mode == -1 && mode == 0) {
                     one_led_on(sample_leds[i])
                 }
             }
