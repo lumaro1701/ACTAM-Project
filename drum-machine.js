@@ -85,12 +85,12 @@ Tone.context.lookAhead = 0
 
 //Paths to samples for the drum machine
 const samples = [
-    "assets/kick.wav",
-    "assets/snare.wav",
-    "assets/closed_hihat.wav",
-    "assets/open_hihat.wav",
-    "assets/shaker.wav",
-    "assets/fill.wav",
+    "samples/kick.wav",
+    "samples/snare.wav",
+    "samples/closed_hihat.wav",
+    "samples/open_hihat.wav",
+    "samples/shaker.wav",
+    "samples/fill.wav",
 ]
 
 //2D array for the drum machine step sequencer
@@ -144,7 +144,6 @@ function one_led_on(led, keep_on=false) {
         }, (60/BPM)/4*1000 - 10)
         timeoutIds.push(timeoutId)
     }
-    console.log(timeoutIds)
 }
 
 function all_step_led_off() {
