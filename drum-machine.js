@@ -119,7 +119,7 @@ let osc2_param = {
 };
 
 let lfo_param = {
-    waveform: "sine",
+    waveform: "sawtooth",
 };
 
 let amp_envelope_param = {
@@ -315,81 +315,60 @@ function synth_controls_section() {
         b.firstChild.remove(); 
     }
 
-    //Left section
+    //Left section (which contains main and modulation section)
     let left = document.createElement("div")
     left.classList.add("left-buttons")
 
-    let upLeft = document.createElement("div")
-    upLeft.classList.add("up-left-buttons")
+
+    //Main section (osc, mixer, lfo, lpf)
+    let main = document.createElement("div")
+    main.classList.add("main-section")
 
 
-    //OSC1 section
-    let osc1 = document.createElement("div")
-    osc1.id = "osc1"
-    let header_osc1 = document.createElement("div")
-    header_osc1.classList.add("header-section")
-    header_osc1.textContent = "OSC 1"
-    osc1.appendChild(header_osc1)
+    //Oscillators sections (osc1, osc2 and lfo)
+    let oscillators = ["osc_1", "osc_2", "lfo"]
+    oscillators.forEach(osc_name => {
+        let osc = document.createElement("div")
+        osc.id = osc_name.replace(/_/g, '')
+        let header = document.createElement("div")
+        header.classList.add("header-section")
+        header.textContent = osc_name.replace(/_/g, ' ').toUpperCase()
+        osc.appendChild(header)
+    
+        let waveform_text = document.createElement("div")
+        waveform_text.classList.add("text-button")
+        waveform_text.textContent = "WAVEFORM"
+        osc.appendChild(waveform_text)
+    
+        let waveform_btn = document.createElement("img")
+        waveform_btn.id = osc_name.replace(/_/g, '')+"_waveform_selector"
+        waveform_btn.draggable = false
+        waveform_btn.classList.add("rotate-button")
+        waveform_btn.classList.add("margin-rotate-btn")
+        waveform_btn.src = "assets/sawtooth-wave.svg"
+        osc.appendChild(waveform_btn)
+    
+        let second_param_text = document.createElement("div")
+        second_param_text.classList.add("text-button")
+        if (osc_name == "osc_1") {
+            var second_param_name = "pitch"
+        } else if (osc_name == "osc_2") {
+            var second_param_name = "duty_cycle"
+        } else {
+            var second_param_name = "rate"
+        }
+        second_param_text.textContent = second_param_name.replace(/_/g, ' ').toUpperCase()
+        osc.appendChild(second_param_text)
+    
+        let second_param_knob = document.createElement("img")
+        second_param_knob.id = osc_name.replace(/_/g, '')+"_"+second_param_name+"_knob"
+        second_param_knob.draggable = false
+        second_param_knob.classList.add("mini-rotate-button")
+        second_param_knob.src = "assets/knob.svg"
+        osc.appendChild(second_param_knob)
 
-    let waveform_text_osc1 = document.createElement("div")
-    waveform_text_osc1.classList.add("text-button")
-    waveform_text_osc1.textContent = "WAVEFORM"
-    osc1.appendChild(waveform_text_osc1)
-
-    let waveform_btn_osc1 = document.createElement("img")
-    waveform_btn_osc1.id = "osc1_waveform_selector"
-    waveform_btn_osc1.draggable = false
-    waveform_btn_osc1.classList.add("rotate-button")
-    waveform_btn_osc1.classList.add("margin-rotate-btn")
-    waveform_btn_osc1.src = "assets/sawtooth-wave.svg"
-    osc1.appendChild(waveform_btn_osc1)
-
-    let pitch_text_osc1 = document.createElement("div")
-    pitch_text_osc1.classList.add("text-button")
-    pitch_text_osc1.textContent = "PITCH"
-    osc1.appendChild(pitch_text_osc1)
-
-    let pitch_btn_osc1 = document.createElement("img")
-    pitch_btn_osc1.id = "osc1_pitch_knob"
-    pitch_btn_osc1.draggable = false
-    pitch_btn_osc1.classList.add("mini-rotate-button")
-    pitch_btn_osc1.src = "assets/knob.svg"
-    osc1.appendChild(pitch_btn_osc1)
-
-
-    //OSC2 section
-    let osc2 = document.createElement("div")
-    osc2.id = "osc2"
-    let header_osc2 = document.createElement("div")
-    header_osc2.classList.add("header-section")
-    header_osc2.textContent = "OSC 2"
-    osc2.appendChild(header_osc2)
-
-    let waveform_text_osc2 = document.createElement("div")
-    waveform_text_osc2.classList.add("text-button")
-    waveform_text_osc2.textContent = "WAVEFORM"
-    osc2.appendChild(waveform_text_osc2)
-
-    let waveform_btn_osc2 = document.createElement("img")
-    waveform_btn_osc2.id = "osc2_waveform_selector"
-    waveform_btn_osc2.draggable = false
-    waveform_btn_osc2.classList.add("rotate-button")
-    waveform_btn_osc2.classList.add("margin-rotate-btn")
-    waveform_btn_osc2.src = "assets/sawtooth-wave.svg"
-    osc2.appendChild(waveform_btn_osc2)
-
-    let cycle_text_osc2 = document.createElement("div")
-    cycle_text_osc2.classList.add("text-button")
-    cycle_text_osc2.textContent = "DUTY CYCLE"
-    osc2.appendChild(cycle_text_osc2)
-
-    let cycle_btn_osc2 = document.createElement("img")
-    cycle_btn_osc2.id = "osc2_cycle_knob"
-    cycle_btn_osc2.draggable = false
-    cycle_btn_osc2.classList.add("mini-rotate-button")
-    cycle_btn_osc2.src = "assets/knob.svg"
-    osc2.appendChild(cycle_btn_osc2)
-
+        main.append(osc)
+    })
 
     //Mixer section
     let mixer = document.createElement("div")
@@ -424,40 +403,7 @@ function synth_controls_section() {
     osc2_vol_knob.src = "assets/knob.svg"
     mixer.appendChild(osc2_vol_knob)
 
-
-    //LFO section
-    let lfo = document.createElement("div")
-    lfo.id = "lfo"
-    let header_lfo = document.createElement("div")
-    header_lfo.classList.add("header-section")
-    header_lfo.textContent = "LFO"
-    lfo.appendChild(header_lfo)
-
-    let waveform_text_lfo = document.createElement("div")
-    waveform_text_lfo.classList.add("text-button")
-    waveform_text_lfo.textContent = "WAVEFORM"
-    lfo.appendChild(waveform_text_lfo)
-
-    let waveform_btn_lfo = document.createElement("img")
-    waveform_btn_lfo.id = "lfo_waveform_selector"
-    waveform_btn_lfo.draggable = false
-    waveform_btn_lfo.classList.add("rotate-button")
-    waveform_btn_lfo.classList.add("margin-rotate-btn")
-    waveform_btn_lfo.src = "assets/sine-wave.svg"
-    lfo.appendChild(waveform_btn_lfo)
-
-    let rate_text_lfo = document.createElement("div")
-    rate_text_lfo.classList.add("text-button")
-    rate_text_lfo.textContent = "RATE"
-    lfo.appendChild(rate_text_lfo)
-
-    let rate_btn_lfo = document.createElement("img")
-    rate_btn_lfo.id = "lfo_rate_knob"
-    rate_btn_lfo.draggable = false
-    rate_btn_lfo.classList.add("mini-rotate-button")
-    rate_btn_lfo.src = "assets/knob.svg"
-    lfo.appendChild(rate_btn_lfo)
-
+    main.append(mixer)
 
     //LPF section
     let lpf = document.createElement("div")
@@ -492,22 +438,87 @@ function synth_controls_section() {
     res_btn_lpf.src = "assets/knob.svg"
     lpf.appendChild(res_btn_lpf)
 
+    main.append(lpf)
 
 
-    upLeft.append(osc1)
-    upLeft.append(osc2)
-    upLeft.append(mixer)
-    upLeft.append(lfo)
-    upLeft.append(lpf)
-
-    left.appendChild(upLeft)
+    left.appendChild(main)
 
 
+    //Modulation section
+    let modulation = document.createElement("div")
+    modulation.classList.add("modulation-section")
 
-    //Right section
+    let mod_header = document.createElement("div")
+    mod_header.classList.add("header-section")
+    mod_header.textContent = "MODULATION AMOUNTS"
+    modulation.appendChild(mod_header)
+
+    let mod_knobs = document.createElement("div")
+    mod_knobs.classList.add("mod-knobs")
+    modulation.appendChild(mod_knobs)
+
+    let params = ["osc_freq", "duty_cycle", "lpf_cutoff"]
+    params.forEach(param => {
+        let block = document.createElement("div")
+        block.id = param+"_mod_block"
+        mod_knobs.appendChild(block)
+
+        let text = document.createElement("div")
+        text.classList.add("text-button")
+        text.textContent = param.replace(/_/g, ' ').toUpperCase()
+        block.appendChild(text)
+
+        let knob = document.createElement("img")
+        knob.id = param+"_mod_knob"
+        knob.draggable = false
+        knob.classList.add("mini-rotate-button")
+        knob.src = "assets/knob.svg"
+        block.appendChild(knob)
+    })
+
+    left.appendChild(modulation)
+
+
+
+    //Right section (envelopes)
     let right = document.createElement("div")
     right.classList.add("right-buttons")
 
+    let envelopes = ["filter", "amplifier"]
+    envelopes.forEach(envelope => {
+        let env = document.createElement("div")
+        env.id = envelope+"_env"
+
+        let header = document.createElement("div")
+        header.classList.add("header-section")
+        header.textContent = envelope.toUpperCase()+" ENVELOPE"
+        env.appendChild(header)
+
+        let knobs = document.createElement("div")
+        knobs.classList.add("env-knobs")
+        env.appendChild(knobs)
+
+        let controls = ["attack", "decay", "sustain", "release"]
+        controls.forEach(control => {
+            let block = document.createElement("div")
+            block.id = control+"_"+envelope+"_env_block"
+            knobs.appendChild(block)
+
+            let text = document.createElement("div")
+            text.classList.add("text-button")
+            text.textContent = control.toUpperCase()
+            block.appendChild(text)
+
+            let knob = document.createElement("img")
+            knob.id = control+"_"+envelope+"_env_knob"
+            knob.draggable = false
+            knob.classList.add("mini-rotate-button")
+            knob.src = "assets/knob.svg"
+            block.appendChild(knob)
+        })
+
+        right.appendChild(env)
+    })
 
     b.appendChild(left)
     b.appendChild(right)
