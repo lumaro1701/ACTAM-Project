@@ -1,6 +1,5 @@
 import "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"
 
-console.log("This is my drum machine");
 
 //Waiting for the HTML content to be loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -31,8 +30,8 @@ document.addEventListener('DOMContentLoaded', function() {
     //Tempo knob and screen
     const tempo_button = document.getElementById('tempo_button')
     const screen = document.getElementById('screen')
-    tempo_knob_rotation(tempo_button, screen);
-    screen.textContent = `${BPM}`;
+    knob_rotation(tempo_button);
+    change_screen_display(BPM)
 
 
     //Play/pause button
@@ -60,9 +59,13 @@ document.addEventListener('DOMContentLoaded', function() {
 let counter = 0
 
 //Min BPM, max BPM and starting BPM
-let MIN_BPM = 20
-let MAX_BPM = 250
+const MIN_BPM = 20
+const MAX_BPM = 250
 let BPM = Math.round(MIN_BPM+(MAX_BPM-MIN_BPM)/2)
+
+//Rotative buttons range limits
+const MIN_ROTATION = -145;
+const MAX_ROTATION = 145;
 
 //Play mode (drum machine or synth)
 let mode = 0
@@ -71,7 +74,7 @@ let play = 0
 //Edit state
 let edit_mode = -1
 
-
+//Octave settings
 let OCTAVE = 3
 let MAX_OCTAVE = 7
 
@@ -102,27 +105,49 @@ for(let i=0; i<sample_seqs.length; i++){
     }
 }
 
-//Array for the step sequencer
+//Array for the synth step sequencer
 let notes_seqs = Array(NB_STEPS*12*MAX_OCTAVE)
 for(let i=0; i<notes_seqs.length; i++){
     notes_seqs[i] = 0
 }
 
 
-//Synth elements parameters
+//Synth parameters
+const SETTING_BOUNDS = {
+    attack: [0.0, 5.0],
+    decay: [0.0, 5.0],
+    sustain: [0.0, 1.0],
+    release: [0.0, 5.0],
+    osc_volume: [0.0, 1.0],
+    lfo_rate: [0.1, 20.0],
+    lfo_mod_amt: [0, 1],
+}
+
+
 let osc1_param = {
     waveform: "sawtooth",
+    volume: 1,
 };
 
 let osc2_param = {
     waveform: "sawtooth",
+    volume: 1,
 };
 
 let lfo_param = {
     waveform: "sawtooth",
+    frequency: 20,
+    mod_amt: 1,
 };
 
 let amp_envelope_param = {
+    attack: 0.001,
+    decay: 0.5,
+    sustain: 0,
+    release: 0.2,
+};
+
+let filt_envelope_param = {
     attack: 0.001,
     decay: 0.5,
     sustain: 0,
@@ -378,30 +403,21 @@ function synth_controls_section() {
     header_mixer.textContent = "MIXER"
     mixer.appendChild(header_mixer)
 
-    let osc1_vol_text = document.createElement("div")
-    osc1_vol_text.classList.add("text-button")
-    osc1_vol_text.textContent = "OSC 1"
-    mixer.appendChild(osc1_vol_text)
+    let osc_names = ["osc_1", "osc_2"]
+    osc_names.forEach(osc_name => {
+        let osc_vol_text = document.createElement("div")
+        osc_vol_text.classList.add("text-button")
+        osc_vol_text.textContent = osc_name.replace(/_/g, ' ').toUpperCase()
+        mixer.appendChild(osc_vol_text)
 
-    let osc1_vol_knob = document.createElement("img")
-    osc1_vol_knob.id = "osc1_vol_knob"
-    osc1_vol_knob.draggable = false
-    osc1_vol_knob.classList.add("mini-rotate-button")
-    osc1_vol_knob.classList.add("margin-mini-rotate-btn")
-    osc1_vol_knob.src = "assets/knob.svg"
-    mixer.appendChild(osc1_vol_knob)
-
-    let osc2_vol_text = document.createElement("div")
-    osc2_vol_text.classList.add("text-button")
-    osc2_vol_text.textContent = "OSC 2"
-    mixer.appendChild(osc2_vol_text)
-
-    let osc2_vol_knob = document.createElement("img")
-    osc2_vol_knob.id = "osc2_vol_knob"
-    osc2_vol_knob.draggable = false
-    osc2_vol_knob.classList.add("mini-rotate-button")
-    osc2_vol_knob.src = "assets/knob.svg"
-    mixer.appendChild(osc2_vol_knob)
+        let osc_vol_knob = document.createElement("img")
+        osc_vol_knob.id = osc_name.replace(/_/g, '')+"_vol_knob"
+        osc_vol_knob.draggable = false
+        osc_vol_knob.classList.add("mini-rotate-button")
+        osc_vol_knob.classList.add("margin-mini-rotate-btn")
+        osc_vol_knob.src = "assets/knob.svg"
+        mixer.appendChild(osc_vol_knob)
+    })
 
     main.append(mixer)
 
@@ -617,40 +633,83 @@ function update_osc_waveform_button(osc) {
 //-----CONTROLLER-----
 let intervalId = 0
 
-function tempo_knob_rotation(knob, screen) {
-    let currentRotation = 0; // Track the current rotation angle
-    
-    // Rotation limits
-    const MIN_ROTATION = -145;
-    const MAX_ROTATION = 145;
+
+function linear_interpolation(x, x1, x2, y1, y2) {
+    return y1 + (x - x1) * (y2 - y1) / (x2 - x1);
+}
+
+function inverse_linear_interpolation(y, x1, x2, y1, y2) {
+    return x1 + ((x2 - x1) / (y2 - y1)) * (y - y1);
+}
+
+function exp_interpolation(x, x1, x2, y1, y2, k=2) {
+    let t = (x - x1) / (x2 - x1);
+    return y1 + (y2 - y1) * Math.pow(t, k);
+}
+
+function inverse_exp_interpolation(y, x1, x2, y1, y2) {
+    return x1 + (x2 - x1) * (Math.log(y / y1) / Math.log(y2 / y1));
+}
+
+
+function knob_rotation(knob) {
+    let currentRotation = 0; //Track the current rotation angle
   
-    // Listen for the wheel event to rotate the knob
+    //Listen for the wheel event to rotate the knob
     knob.addEventListener('wheel', (e) => {
-        // Prevent default scroll behavior (optional if you don't want the page to scroll)
+        //Prevent default scroll behavior
         e.preventDefault();
     
-        // Determine the scroll direction (wheel delta)
-        const delta = e.deltaY; // Positive for scrolling down, negative for scrolling up
+        //Determine the scroll direction (wheel delta)
+        const delta = e.deltaY; //Positive for scrolling down, negative for scrolling up
     
-        // Adjust rotation based on wheel movement
-        let newRotation = currentRotation + (delta / 5); // Adjust speed here by changing divisor
+        //Adjust rotation based on wheel movement
+        let newRotation = currentRotation + (delta / 5); //Adjust speed here by changing divisor
     
-        // Clamp the rotation to the bounds
+        //Clamp the rotation to the bounds
         if (newRotation < MIN_ROTATION) {
             newRotation = MIN_ROTATION;
         } else if (newRotation > MAX_ROTATION) {
             newRotation = MAX_ROTATION;
         }
     
-        // Apply the new rotation to the knob
+        //Apply the new rotation to the knob
         knob.style.transform = `rotate(${newRotation}deg)`;
     
-        // Update the current rotation for future calculations
+        //Update the current rotation for future calculations
         currentRotation = newRotation;
-        BPM = Math.round((MAX_BPM-MIN_BPM)/(MAX_ROTATION-MIN_ROTATION)*currentRotation + MIN_BPM+(MAX_BPM-MIN_BPM)/2)
-        screen.textContent = `${BPM}`;
+
+        //Update the value of the desired parameter by calling the appropriate function        
+        if (knob.id.includes("env")){
+            let knob_id_splitted = knob.id.split('_')
+
+            if (knob_id_splitted[0] == "sustain") {
+                var interpol_method = linear_interpolation
+            } else {
+                var interpol_method = exp_interpolation
+            }
+            change_envelope_settings(
+                knob_id_splitted[1], //The envelope considered
+                knob_id_splitted[0], //The setting to update
+                currentRotation, //The angle value that will be interpolated
+                interpol_method
+            )
+        }
+
+        if (knob.id.includes("tempo")) {
+            BPM = Math.round((MAX_BPM-MIN_BPM)/(MAX_ROTATION-MIN_ROTATION)*currentRotation + MIN_BPM+(MAX_BPM-MIN_BPM)/2)
+            change_screen_display(BPM)
+        }
+
+        if (knob.id.includes("vol_knob")) {
+            let knob_id_splitted = knob.id.split('_')
+            change_osc_vol(knob_id_splitted[0], currentRotation)
+        }
+
     });
-  }
+}
+
+
 
 
 
@@ -718,6 +777,23 @@ function load_synth_button_section() {
         })
     }
 
+    //Envelopes knobs
+    let settings = ["attack", "decay", "sustain", "release"]
+    let envelopes = ["filter", "amplifier"]
+
+    envelopes.forEach(env => {
+        settings.forEach(setting => {
+            let element = document.getElementById(setting+"_"+env+"_env_knob")
+            knob_rotation(element)
+        })
+    })
+
+    //Mixer knobs
+    let osc_names = ["osc1", "osc2"]
+    osc_names.forEach(osc_name => {
+        let element = document.getElementById(osc_name+"_vol_knob")
+        knob_rotation(element)
+    })
 
 
 
@@ -740,6 +816,44 @@ function change_osc_waveform(osc) {
         lfo_param["waveform"] = waveforms[(index+1) % waveforms.length]
     }
     update_osc_waveform_button(osc)
+}
+
+function change_osc_vol(osc_name, value) {
+    let new_value = linear_interpolation(
+        value, 
+        MIN_ROTATION, 
+        MAX_ROTATION, 
+        SETTING_BOUNDS["osc_volume"][0],
+        SETTING_BOUNDS["osc_volume"][1]
+    )
+
+    if (osc_name == "osc1") {
+        osc1_param["volume"] = new_value
+    } else if (osc_name == "osc2") {
+        osc2_param["volume"] = new_value
+    }
+}
+
+
+function change_envelope_settings(env, setting, value, interpol_method=linear_interpolation) {
+    let new_value = interpol_method(
+        value, 
+        MIN_ROTATION, 
+        MAX_ROTATION, 
+        SETTING_BOUNDS[setting][0],
+        SETTING_BOUNDS[setting][1]
+    )
+    
+    if (env == "filter") {
+        filt_envelope_param[setting] = new_value
+    } else if (env == "amplifier") {
+        amp_envelope_param[setting] = new_value
+    }
+}
+
+function change_screen_display(new_display) {
+    let screen = document.getElementById("screen")
+    screen.textContent = `${new_display}`
 }
 
 
@@ -870,8 +984,14 @@ function play_note(key_index) {
         },
     }).toDestination();
 
-    osc1.triggerAttackRelease(note);
-    osc2.triggerAttackRelease(note);
+    //Set the volume of the oscillators
+    osc1.volume.value = convert_to_db(osc1_param["volume"])
+    osc2.volume.value = convert_to_db(osc2_param["volume"])
+
+
+    //The note duration is maximum a cycle of the sequencer
+    osc1.triggerAttackRelease(note, (60/BPM)/4);
+    osc2.triggerAttackRelease(note, (60/BPM)/4);
 
     //Dispose the osc to avoid overload
     setTimeout(() => {
@@ -886,4 +1006,8 @@ function convert_to_note_and_octave(key_index){
     let note = chroma_scale[key_index % 12]
     let octave = Math.floor(key_index / (12*NB_STEPS))
     return note+octave.toString()
+}
+
+function convert_to_db(value) {
+    return 20*Math.log10(value+Number.MIN_VALUE)
 }

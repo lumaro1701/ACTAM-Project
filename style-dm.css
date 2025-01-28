@@ -95,6 +95,10 @@
     align-items: center;
 }
 
+#osc2, #lfo, #mixer {
+    border-right: 3px solid rgb(30, 30, 30);
+}
+
 .margin-rotate-btn {
     margin-bottom: 12px;
 }
