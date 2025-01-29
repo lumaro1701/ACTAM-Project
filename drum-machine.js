@@ -125,6 +125,8 @@ const SETTING_BOUNDS = {
     osc_volume: [0.0, 1.0],
     osc_mod_amt: [0, 500],
     osc1_pitch: [-1200, 1200],
+    osc2_pulse_width: [-1, 1],
+    osc2_pwm: [0, 0.5],
     lfo_rate: [0.1, 20.0],
     lpf_cutoff: [1, 20000],
     lpf_resonance: [0, 15],
@@ -144,6 +146,8 @@ let osc2_param = {
     waveform: "sawtooth",
     volume: 1,
     mod_amt: osc1_param["mod_amt"],
+    pulse_width: 0,
+    pwm: 0,
 };
 
 let lfo_param = {
@@ -229,6 +233,7 @@ function load_synth_elements() {
     window.oscillators2 = []
     window.osc1_lfo_scales = []
     window.osc2_lfo_scales = []
+    window.osc2_pwm_scales = []
     let osc_lists = [oscillators1, oscillators2]
     let params_list = [osc1_param, osc2_param]
     let osc_lfo_scales_list = [osc1_lfo_scales, osc2_lfo_scales]
@@ -250,6 +255,13 @@ function load_synth_elements() {
             let osc_lfo_scale = new Tone.Scale(0, 0)
             lfo.connect(osc_lfo_scale)
             osc_lfo_scale.connect(osc.frequency)
+
+            //Create but don't connect LFO to OSC2 for PWM yet
+            if (i == 1) {
+                let pwm_scale = new Tone.Scale(osc2_param["pwm"], osc2_param["pwm"])
+                lfo.connect(pwm_scale)
+                osc2_pwm_scales.push(pwm_scale)
+            }
 
             //Connect OSC to the LPF
             osc.connect(lpf);
@@ -489,7 +501,7 @@ function synth_controls_section() {
         if (osc_name == "osc_1") {
             var second_param_name = "pitch"
         } else if (osc_name == "osc_2") {
-            var second_param_name = "duty_cycle"
+            var second_param_name = "pulse_width"
         } else {
             var second_param_name = "rate"
         }
@@ -584,7 +596,7 @@ function synth_controls_section() {
     mod_knobs.classList.add("mod-knobs")
     modulation.appendChild(mod_knobs)
 
-    let params = ["osc_freq", "duty_cycle", "lpf_cutoff", "lpf_envelope"]
+    let params = ["osc_freq", "pwm", "lpf_cutoff", "lpf_envelope"]
     params.forEach(param => {
         let block = document.createElement("div")
         block.id = param+"_mod_block"
@@ -837,8 +849,16 @@ function knob_rotation(knob) {
             change_osc_freq_modulation(currentRotation)
         }
 
+        if (knob.id == "pwm_mod_knob") {
+            change_osc2_pwm(currentRotation)
+        }
+
         if (knob.id == "osc1_pitch_knob") {
             change_osc1_pitch(currentRotation)
+        }
+
+        if (knob.id == "osc2_pulse_width_knob") {
+            change_osc2_pulse_width(currentRotation)
         }
 
     });
@@ -920,6 +940,10 @@ function load_synth_button_section() {
     let osc1_pitch = document.getElementById("osc1_pitch_knob")
     knob_rotation(osc1_pitch)
 
+    //OSC2 duty cucle
+    let osc2_pulse_width = document.getElementById("osc2_pulse_width_knob")
+    knob_rotation(osc2_pulse_width)
+
     //Envelopes knobs
     let settings_env = ["attack", "decay", "sustain", "release"]
     let envelopes = ["filter", "amplifier"]
@@ -946,7 +970,7 @@ function load_synth_button_section() {
     })
 
     //Modulation knobs
-    let mod_knobs_ids = ["lpf_cutoff_mod_knob", "lpf_envelope_mod_knob", "osc_freq_mod_knob"]
+    let mod_knobs_ids = ["lpf_cutoff_mod_knob", "lpf_envelope_mod_knob", "osc_freq_mod_knob", "pwm_mod_knob"]
     mod_knobs_ids.forEach(knob_id => {
         let element = document.getElementById(knob_id)
         knob_rotation(element)
@@ -955,7 +979,7 @@ function load_synth_button_section() {
 
 
 function change_osc_waveform(osc) {
-    let waveforms = ["sawtooth", "triangle", "square", "sine"]
+    let waveforms = ["sawtooth", "triangle", "pulse", "sine"]
     if (osc == 1){
         let index = waveforms.indexOf(osc1_param["waveform"]);
         let new_waveform = waveforms[(index+1) % waveforms.length]
@@ -968,16 +992,30 @@ function change_osc_waveform(osc) {
         let index = waveforms.indexOf(osc2_param["waveform"]);
         let new_waveform = waveforms[(index+1) % waveforms.length]
         osc2_param["waveform"] = new_waveform
-        oscillators2.forEach(osc => {
-            osc.oscillator.type = new_waveform
-        })
+        for (let i=0; i<oscillators2.length; i++) {
+            oscillators2[i].oscillator.type = new_waveform
+            //Update duty cycle and connect/disconnect PWM
+            if (new_waveform == "pulse") {
+                oscillators2[i].oscillator.width.value = osc2_param["pulse_width"]
+                osc2_pwm_scales[i].connect(oscillators2[i].oscillator.width)
+            } else if (waveforms[index] == "pulse") { //If current waveform is "pulse"
+                osc2_pwm_scales[i].disconnect(oscillators2[i].oscillator.width)
+            }
+            //Update waveform
+        }
     }
     //LFO
     if (osc == 3){
         let index = waveforms.indexOf(lfo_param["waveform"]);
         let new_waveform = waveforms[(index+1) % waveforms.length]
         lfo_param["waveform"] = new_waveform
-        lfo.type = new_waveform
+        //If new_waveform == "pulse" just change to "square" as Tone.LFO
+        // object doesn't have pulse type of waveform
+        if (new_waveform == "pulse") {
+            lfo.type = "square"
+        } else {
+            lfo.type = new_waveform
+        }
     }
     update_osc_waveform_button(osc)
 }
@@ -1029,6 +1067,44 @@ function change_osc1_pitch(value) {
     )
 
     osc1_param["pitch"] = new_value
+    oscillators1.forEach(osc => {
+        osc.detune.value = new_value
+    })
+}
+
+function change_osc2_pulse_width(value) {
+    let new_value = linear_interpolation(
+        value, 
+        MIN_ROTATION, 
+        MAX_ROTATION, 
+        SETTING_BOUNDS["osc2_pulse_width"][0],
+        SETTING_BOUNDS["osc2_pulse_width"][1]
+    )
+
+    osc2_param["pulse_width"] = new_value
+
+    //Update the scale of the PWM
+    osc2_pwm_scales.forEach(scale => {
+        scale.min = new_value - osc2_param["pwm"]
+        scale.max = new_value + osc2_param["pwm"]
+    })
+
+}
+
+function change_osc2_pwm(value) {
+    let new_value = linear_interpolation(
+        value, 
+        MIN_ROTATION, 
+        MAX_ROTATION, 
+        SETTING_BOUNDS["osc2_pwm"][0],
+        SETTING_BOUNDS["osc2_pwm"][1]
+    )
+
+    osc2_param["pwm"] = new_value
+    osc2_pwm_scales.forEach(scale => {
+        scale.min = osc2_param["pulse_width"] - new_value
+        scale.max = osc2_param["pulse_width"] + new_value
+    })
 }
 
 
@@ -1237,8 +1313,6 @@ function play_note(key_index, osc_idx=0) {
 
     //Trigger the oscillators
     // the note is maximum one step duration
-    // the osc1 is detuned according to the pitch value
-    osc1.detune.value = osc1_param["pitch"]
     osc1.triggerAttackRelease(note, (60/BPM)/4 - 0.002, undefined)
     osc2.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
 }
