@@ -124,10 +124,12 @@ const SETTING_BOUNDS = {
     release: [0.0, 5.0],
     osc_volume: [0.0, 1.0],
     osc_mod_amt: [0, 500],
+    osc1_pitch: [-1200, 1200],
     lfo_rate: [0.1, 20.0],
     lpf_cutoff: [1, 20000],
     lpf_resonance: [0, 15],
     lpf_mod_amt: [0, 15000],
+    lpf_env_amt: [0, 15000],
 }
 
 
@@ -135,6 +137,7 @@ let osc1_param = {
     waveform: "sawtooth",
     volume: 1,
     mod_amt: 0,
+    pitch: 0,
 };
 
 let osc2_param = {
@@ -154,6 +157,7 @@ let lpf_param = {
     rolloff: -24,
     resonance: 0,
     mod_amt: 0,
+    env_amt: 1000,
 }
 
 let amp_envelope_param = {
@@ -191,16 +195,24 @@ function load_synth_elements() {
 
     //Create filter envelope
     window.lpf_envelope = new Tone.Envelope({
+        curve: "exponential",
         attack: filt_envelope_param["attack"],
         decay: filt_envelope_param["decay"],
         sustain: filt_envelope_param["sustain"],
         release: filt_envelope_param["release"],
     })
 
+
+    //Scale the filter envelope and connect it to the filter's frequency
+    window.lpf_env_scale = new Tone.Scale(lpf_param["cutoff"], lpf_param["cutoff"]+lpf_param["env_amt"])
+    lpf_envelope.connect(lpf_env_scale)
+    lpf_env_scale.connect(lpf.frequency)
+
+
     //Create LFO
     window.lfo = new Tone.LFO({
         type: lfo_param["waveform"],
-        min: 0,
+        min: -1,
         max: 1,
         frequency: lfo_param["frequency"],
     }).start()
@@ -227,6 +239,7 @@ function load_synth_elements() {
                     type: params_list[i]["waveform"]
                 },
                 envelope: {
+                    curve: "exponential",
                     attack: amp_envelope_param["attack"],
                     decay: amp_envelope_param["decay"],
                     sustain: amp_envelope_param["sustain"],
@@ -778,7 +791,7 @@ function knob_rotation(knob) {
         display_rotate_knob(knob, currentRotation)
 
         //Update the value of the desired parameter by calling the appropriate function        
-        if (knob.id.includes("env")){
+        if (knob.id.includes("env_")){
             let knob_id_splitted = knob.id.split('_')
 
             if (knob_id_splitted[0] == "sustain") {
@@ -806,8 +819,10 @@ function knob_rotation(knob) {
         }
 
         if (knob.id.includes("lpf_")) {
-            if (knob.id.includes("mod_knob")) {
+            if (knob.id == "lpf_cutoff_mod_knob") {
                 change_lpf_settings("mod_amt", currentRotation)
+            } else if (knob.id == "lpf_envelope_mod_knob") {
+                change_lpf_settings("env_amt", currentRotation)
             } else {
                 let knob_id_splitted = knob.id.split('_')
                 change_lpf_settings(knob_id_splitted[1], currentRotation)
@@ -820,6 +835,10 @@ function knob_rotation(knob) {
 
         if (knob.id == "osc_freq_mod_knob") {
             change_osc_freq_modulation(currentRotation)
+        }
+
+        if (knob.id == "osc1_pitch_knob") {
+            change_osc1_pitch(currentRotation)
         }
 
     });
@@ -894,8 +913,12 @@ function load_synth_button_section() {
     }
 
     //LFO rate
-    lfo_rate_knob = document.getElementById("lfo_rate_knob")
+    let lfo_rate_knob = document.getElementById("lfo_rate_knob")
     knob_rotation(lfo_rate_knob)
+
+    //OSC1 pitch
+    let osc1_pitch = document.getElementById("osc1_pitch_knob")
+    knob_rotation(osc1_pitch)
 
     //Envelopes knobs
     let settings_env = ["attack", "decay", "sustain", "release"]
@@ -923,7 +946,7 @@ function load_synth_button_section() {
     })
 
     //Modulation knobs
-    let mod_knobs_ids = ["lpf_cutoff_mod_knob", "osc_freq_mod_knob"]
+    let mod_knobs_ids = ["lpf_cutoff_mod_knob", "lpf_envelope_mod_knob", "osc_freq_mod_knob"]
     mod_knobs_ids.forEach(knob_id => {
         let element = document.getElementById(knob_id)
         knob_rotation(element)
@@ -996,6 +1019,19 @@ function change_osc_freq_modulation(value) {
 }
 
 
+function change_osc1_pitch(value) {
+    let new_value = linear_interpolation(
+        value, 
+        MIN_ROTATION, 
+        MAX_ROTATION, 
+        SETTING_BOUNDS["osc1_pitch"][0],
+        SETTING_BOUNDS["osc1_pitch"][1]
+    )
+
+    osc1_param["pitch"] = new_value
+}
+
+
 function change_envelope_settings(env, setting, value, interpol_method=linear_interpolation) {
     let new_value = interpol_method(
         value, 
@@ -1061,10 +1097,14 @@ function change_lpf_settings(setting, value, interpol_method=exp_interpolation) 
         lpf.frequency.value = new_value
         lpf_lfo.min = new_value
         lpf_lfo.max = lpf_param["cutoff"]+lpf_param["mod_amt"] //We shift the max modulation value
+        lpf_env_scale.min = new_value
+        lpf_env_scale.max = lpf_param["cutoff"]+lpf_param["env_amt"] //Same
     } else if (setting == "resonance") {
         lpf.Q.value = new_value
     } else if (setting == "mod_amt") {
         lpf_lfo.max = lpf_param["cutoff"]+new_value
+    } else if (setting == "env_amt") {
+        lpf_env_scale.max = lpf_param["cutoff"]+new_value
     }
 }
 
@@ -1197,9 +1237,12 @@ function play_note(key_index, osc_idx=0) {
 
     //Trigger the oscillators
     // the note is maximum one step duration
-    osc1.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
+    // the osc1 is detuned according to the pitch value
+    osc1.detune.value = osc1_param["pitch"]
+    osc1.triggerAttackRelease(note, (60/BPM)/4 - 0.002, undefined)
     osc2.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
 }
+
 
 
 //Function to be called when MULTIPLE notes must be played
