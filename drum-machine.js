@@ -76,9 +76,13 @@ let edit_mode = -1
 
 //Octave settings
 let OCTAVE = 3
-let MAX_OCTAVE = 7
+const MAX_OCTAVE = 7
 
-let NB_STEPS = 16
+//Sequencer parameters
+const NB_STEPS = 16
+
+//Number of voices of polyphony
+const NB_VOICES_POLYPHONY = 16
 
 //Create the audio context
 const audio_context = new AudioContext()
@@ -114,31 +118,43 @@ for(let i=0; i<notes_seqs.length; i++){
 
 //Synth parameters
 const SETTING_BOUNDS = {
-    attack: [0.0, 5.0],
-    decay: [0.0, 5.0],
+    attack: [0.0, 2.0],
+    decay: [0.0, 2.0],
     sustain: [0.0, 1.0],
     release: [0.0, 5.0],
     osc_volume: [0.0, 1.0],
+    osc_mod_amt: [0, 500],
     lfo_rate: [0.1, 20.0],
-    lfo_mod_amt: [0, 1],
+    lpf_cutoff: [1, 20000],
+    lpf_resonance: [0, 15],
+    lpf_mod_amt: [0, 15000],
 }
 
 
 let osc1_param = {
     waveform: "sawtooth",
     volume: 1,
+    mod_amt: 0,
 };
 
 let osc2_param = {
     waveform: "sawtooth",
     volume: 1,
+    mod_amt: osc1_param["mod_amt"],
 };
 
 let lfo_param = {
     waveform: "sawtooth",
     frequency: 20,
-    mod_amt: 1,
 };
+
+let lpf_param = {
+    type: "lowpass",
+    cutoff: 20000,
+    rolloff: -24,
+    resonance: 0,
+    mod_amt: 0,
+}
 
 let amp_envelope_param = {
     attack: 0.001,
@@ -149,10 +165,88 @@ let amp_envelope_param = {
 
 let filt_envelope_param = {
     attack: 0.001,
-    decay: 0.5,
-    sustain: 0,
+    decay: 0.1,
+    sustain: 0.5,
     release: 0.2,
 };
+
+
+//This event ensures that all the synth elements will be loaded
+// after a user event, preventing some JS warnings
+document.addEventListener('click', function() {
+    if (Tone.context.state !== 'running') {
+        Tone.start()
+        load_synth_elements()
+    }
+})
+
+function load_synth_elements() {
+    //Create filter (LPF)
+    window.lpf = new Tone.Filter({
+        type: lpf_param["type"],
+        frequency: lpf_param["cutoff"],
+        rolloff: lpf_param["rolloff"],
+        Q: lpf_param["resonance"]
+    }).toDestination();
+
+    //Create filter envelope
+    window.lpf_envelope = new Tone.Envelope({
+        attack: filt_envelope_param["attack"],
+        decay: filt_envelope_param["decay"],
+        sustain: filt_envelope_param["sustain"],
+        release: filt_envelope_param["release"],
+    })
+
+    //Create LFO
+    window.lfo = new Tone.LFO({
+        type: lfo_param["waveform"],
+        min: 0,
+        max: 1,
+        frequency: lfo_param["frequency"],
+    }).start()
+
+
+    //Connect LFO to LPF for cutoff frequency modulation
+    window.lpf_lfo = new Tone.Scale(lpf_param["cutoff"], lpf_param["cutoff"]+lpf_param["mod_amt"])
+    lfo.connect(lpf_lfo)
+    lpf_lfo.connect(lpf.frequency)
+
+
+    //Create oscillators and connect them to the filter
+    window.oscillators1 = []
+    window.oscillators2 = []
+    window.osc1_lfo_scales = []
+    window.osc2_lfo_scales = []
+    let osc_lists = [oscillators1, oscillators2]
+    let params_list = [osc1_param, osc2_param]
+    let osc_lfo_scales_list = [osc1_lfo_scales, osc2_lfo_scales]
+    for (let i=0; i<osc_lists.length; i++) {
+        for (let j=0; j<NB_VOICES_POLYPHONY; j++) {
+            var osc = new Tone.Synth({
+                oscillator: {
+                    type: params_list[i]["waveform"]
+                },
+                envelope: {
+                    attack: amp_envelope_param["attack"],
+                    decay: amp_envelope_param["decay"],
+                    sustain: amp_envelope_param["sustain"],
+                    release: amp_envelope_param["release"],
+                },
+            })            
+            //Connect LFO to OSCs for pitch modulation
+            let osc_lfo_scale = new Tone.Scale(0, 0)
+            lfo.connect(osc_lfo_scale)
+            osc_lfo_scale.connect(osc.frequency)
+
+            //Connect OSC to the LPF
+            osc.connect(lpf);
+
+            //Push the newly created objects into their respective lists
+            osc_lfo_scales_list[i].push(osc_lfo_scale)
+            osc_lists[i].push(osc)
+        }
+    }
+}
 
 
 //-----VIEW-----
@@ -222,6 +316,10 @@ function render_leds_edit(edit_sample_index) {
 
 function disable_all_select_buttons() {
     document.querySelectorAll(".select-button").forEach(button => button.style.backgroundColor = "")
+}
+
+function display_rotate_knob(knob, rotation_angle) {
+    knob.style.transform = `rotate(${rotation_angle}deg)`;
 }
 
 function drum_machine_section() {
@@ -435,7 +533,7 @@ function synth_controls_section() {
     lpf.appendChild(cutoff_text_lpf)
 
     let cutoff_btn_lpf = document.createElement("img")
-    cutoff_btn_lpf.id = "lfo_waveform_selector"
+    cutoff_btn_lpf.id = "lpf_cutoff_knob"
     cutoff_btn_lpf.draggable = false
     cutoff_btn_lpf.classList.add("rotate-button")
     cutoff_btn_lpf.classList.add("margin-rotate-btn")
@@ -448,7 +546,7 @@ function synth_controls_section() {
     lpf.appendChild(res_text_lpf)
 
     let res_btn_lpf = document.createElement("img")
-    res_btn_lpf.id = "lfo_rate_knob"
+    res_btn_lpf.id = "lpf_resonance_knob"
     res_btn_lpf.draggable = false
     res_btn_lpf.classList.add("mini-rotate-button")
     res_btn_lpf.src = "assets/knob.svg"
@@ -473,7 +571,7 @@ function synth_controls_section() {
     mod_knobs.classList.add("mod-knobs")
     modulation.appendChild(mod_knobs)
 
-    let params = ["osc_freq", "duty_cycle", "lpf_cutoff"]
+    let params = ["osc_freq", "duty_cycle", "lpf_cutoff", "lpf_envelope"]
     params.forEach(param => {
         let block = document.createElement("div")
         block.id = param+"_mod_block"
@@ -658,26 +756,26 @@ function knob_rotation(knob) {
     //Listen for the wheel event to rotate the knob
     knob.addEventListener('wheel', (e) => {
         //Prevent default scroll behavior
-        e.preventDefault();
+        e.preventDefault()
     
         //Determine the scroll direction (wheel delta)
         const delta = e.deltaY; //Positive for scrolling down, negative for scrolling up
     
         //Adjust rotation based on wheel movement
-        let newRotation = currentRotation + (delta / 5); //Adjust speed here by changing divisor
+        let newRotation = currentRotation + (delta / 5) //Adjust speed here by changing divisor
     
         //Clamp the rotation to the bounds
         if (newRotation < MIN_ROTATION) {
-            newRotation = MIN_ROTATION;
+            newRotation = MIN_ROTATION
         } else if (newRotation > MAX_ROTATION) {
-            newRotation = MAX_ROTATION;
+            newRotation = MAX_ROTATION
         }
     
-        //Apply the new rotation to the knob
-        knob.style.transform = `rotate(${newRotation}deg)`;
-    
         //Update the current rotation for future calculations
-        currentRotation = newRotation;
+        currentRotation = newRotation
+    
+        //Apply the new rotation to the knob
+        display_rotate_knob(knob, currentRotation)
 
         //Update the value of the desired parameter by calling the appropriate function        
         if (knob.id.includes("env")){
@@ -696,6 +794,7 @@ function knob_rotation(knob) {
             )
         }
 
+        //The following blocks connect the buttons to their respective functions
         if (knob.id.includes("tempo")) {
             BPM = Math.round((MAX_BPM-MIN_BPM)/(MAX_ROTATION-MIN_ROTATION)*currentRotation + MIN_BPM+(MAX_BPM-MIN_BPM)/2)
             change_screen_display(BPM)
@@ -704,6 +803,23 @@ function knob_rotation(knob) {
         if (knob.id.includes("vol_knob")) {
             let knob_id_splitted = knob.id.split('_')
             change_osc_vol(knob_id_splitted[0], currentRotation)
+        }
+
+        if (knob.id.includes("lpf_")) {
+            if (knob.id.includes("mod_knob")) {
+                change_lpf_settings("mod_amt", currentRotation)
+            } else {
+                let knob_id_splitted = knob.id.split('_')
+                change_lpf_settings(knob_id_splitted[1], currentRotation)
+            }
+        }
+
+        if(knob.id == "lfo_rate_knob") {
+            change_lfo_rate(currentRotation)
+        }
+
+        if (knob.id == "osc_freq_mod_knob") {
+            change_osc_freq_modulation(currentRotation)
         }
 
     });
@@ -777,12 +893,16 @@ function load_synth_button_section() {
         })
     }
 
+    //LFO rate
+    lfo_rate_knob = document.getElementById("lfo_rate_knob")
+    knob_rotation(lfo_rate_knob)
+
     //Envelopes knobs
-    let settings = ["attack", "decay", "sustain", "release"]
+    let settings_env = ["attack", "decay", "sustain", "release"]
     let envelopes = ["filter", "amplifier"]
 
     envelopes.forEach(env => {
-        settings.forEach(setting => {
+        settings_env.forEach(setting => {
             let element = document.getElementById(setting+"_"+env+"_env_knob")
             knob_rotation(element)
         })
@@ -795,8 +915,19 @@ function load_synth_button_section() {
         knob_rotation(element)
     })
 
+    //LPF knobs
+    let settings_lpf = ["cutoff", "resonance"]
+    settings_lpf.forEach(setting => {
+        let element = document.getElementById("lpf_"+setting+"_knob")
+        knob_rotation(element)
+    })
 
-
+    //Modulation knobs
+    let mod_knobs_ids = ["lpf_cutoff_mod_knob", "osc_freq_mod_knob"]
+    mod_knobs_ids.forEach(knob_id => {
+        let element = document.getElementById(knob_id)
+        knob_rotation(element)
+    })
 }
 
 
@@ -804,16 +935,26 @@ function change_osc_waveform(osc) {
     let waveforms = ["sawtooth", "triangle", "square", "sine"]
     if (osc == 1){
         let index = waveforms.indexOf(osc1_param["waveform"]);
-        osc1_param["waveform"] = waveforms[(index+1) % waveforms.length]
+        let new_waveform = waveforms[(index+1) % waveforms.length]
+        osc1_param["waveform"] = new_waveform
+        oscillators1.forEach(osc => {
+            osc.oscillator.type = new_waveform
+        })
     }
     if (osc == 2){
         let index = waveforms.indexOf(osc2_param["waveform"]);
-        osc2_param["waveform"] = waveforms[(index+1) % waveforms.length]
+        let new_waveform = waveforms[(index+1) % waveforms.length]
+        osc2_param["waveform"] = new_waveform
+        oscillators2.forEach(osc => {
+            osc.oscillator.type = new_waveform
+        })
     }
     //LFO
     if (osc == 3){
         let index = waveforms.indexOf(lfo_param["waveform"]);
-        lfo_param["waveform"] = waveforms[(index+1) % waveforms.length]
+        let new_waveform = waveforms[(index+1) % waveforms.length]
+        lfo_param["waveform"] = new_waveform
+        lfo.type = new_waveform
     }
     update_osc_waveform_button(osc)
 }
@@ -829,9 +970,29 @@ function change_osc_vol(osc_name, value) {
 
     if (osc_name == "osc1") {
         osc1_param["volume"] = new_value
+        oscillators1.forEach(osc => {
+            osc.volume.value = convert_to_db(new_value)
+        })
     } else if (osc_name == "osc2") {
         osc2_param["volume"] = new_value
+        oscillators2.forEach(osc => {
+            osc.volume.value = convert_to_db(new_value)
+        })
     }
+}
+
+
+function change_osc_freq_modulation(value) {
+    let new_value = exp_interpolation(
+        value, 
+        MIN_ROTATION, 
+        MAX_ROTATION, 
+        SETTING_BOUNDS["osc_mod_amt"][0],
+        SETTING_BOUNDS["osc_mod_amt"][1]
+    )
+
+    osc1_param["mod_amt"] = new_value
+    osc2_param["mod_amt"] = new_value
 }
 
 
@@ -846,10 +1007,67 @@ function change_envelope_settings(env, setting, value, interpol_method=linear_in
     
     if (env == "filter") {
         filt_envelope_param[setting] = new_value
+
+        //Update the envelope for the filter
+        lpf_envelope.attack = filt_envelope_param["attack"]
+        lpf_envelope.decay = filt_envelope_param["decay"]
+        lpf_envelope.sustain = filt_envelope_param["sustain"]
+        lpf_envelope.release = filt_envelope_param["release"]
+
     } else if (env == "amplifier") {
         amp_envelope_param[setting] = new_value
+
+        //Update the envelope for all the oscillators
+        let osc_lists = [oscillators1, oscillators2]
+        osc_lists.forEach(oscillators => {
+            oscillators.forEach(osc => {
+                osc.envelope.attack = amp_envelope_param["attack"]
+                osc.envelope.decay = amp_envelope_param["decay"]
+                osc.envelope.sustain = amp_envelope_param["sustain"]
+                osc.envelope.release = amp_envelope_param["release"]
+            })
+        })
+    }
+
+}
+
+
+function change_lfo_rate(value) {
+    let new_value = exp_interpolation(
+        value, 
+        MIN_ROTATION,
+        MAX_ROTATION,
+        SETTING_BOUNDS["lfo_rate"][0],
+        SETTING_BOUNDS["lfo_rate"][1],
+    )
+
+    lfo_param["frequency"] = new_value
+    lfo.frequency.value = new_value
+}
+
+
+function change_lpf_settings(setting, value, interpol_method=exp_interpolation) {
+    let new_value = interpol_method(
+        value, 
+        MIN_ROTATION,
+        MAX_ROTATION,
+        SETTING_BOUNDS["lpf_"+setting][0],
+        SETTING_BOUNDS["lpf_"+setting][1],
+    )
+
+    lpf_param[setting] = new_value
+
+    if (setting == "cutoff") {
+        lpf.frequency.value = new_value
+        lpf_lfo.min = new_value
+        lpf_lfo.max = lpf_param["cutoff"]+lpf_param["mod_amt"] //We shift the max modulation value
+    } else if (setting == "resonance") {
+        lpf.Q.value = new_value
+    } else if (setting == "mod_amt") {
+        lpf_lfo.max = lpf_param["cutoff"]+new_value
     }
 }
+
 
 function change_screen_display(new_display) {
     let screen = document.getElementById("screen")
@@ -859,7 +1077,10 @@ function change_screen_display(new_display) {
 
 function play_seq() {
     intervalId = setInterval(function incr() {
+
         render_step_leds()
+
+        //Play the drum machine samples of the current step and render the leds
         let sample_leds = document.querySelectorAll(".led")
         for(let i=0; i<sample_seqs.length; i++){
             if (sample_seqs[i][counter] == 1){
@@ -870,15 +1091,8 @@ function play_seq() {
             }
         }
     
-        for (let j=0; j<MAX_OCTAVE; j++){
-            for (let i=counter*12; i<counter*12+12; i++) {
-                let true_idx = j*12*NB_STEPS + i
-    
-                if (notes_seqs[true_idx] == 1) {
-                    play_note(true_idx)
-                }
-            }
-        }
+        //Play the notes of the current step
+        play_step_notes(counter)
         
         counter = (counter+1) % NB_STEPS
     }, (60/BPM)/4*1000)
@@ -956,49 +1170,65 @@ function play_sample(sample_index){
     }
 }
 
-function play_note(key_index) {
+
+//Function to be called when ONLY ONE NOTE must be played
+function play_note(key_index, osc_idx=0) {
 
     let note = convert_to_note_and_octave(key_index)
 
-    let osc1 = new Tone.Synth({
-        oscillator: {
-          type: osc1_param["waveform"]
-        },
-        envelope: {
-          attack: amp_envelope_param["attack"],
-          decay: amp_envelope_param["decay"],
-          sustain: amp_envelope_param["sustain"],
-          release: amp_envelope_param["release"],
-        },
-    }).toDestination();
+    //Define the OSC that will be used to reproduce the note
+    let osc1 = oscillators1[osc_idx]
+    let osc2 = oscillators2[osc_idx]
 
-    let osc2 = new Tone.Synth({
-        oscillator: {
-          type: osc2_param["waveform"]
-        },
-        envelope: {
-          attack: amp_envelope_param["attack"],
-          decay: amp_envelope_param["decay"],
-          sustain: amp_envelope_param["sustain"],
-          release: amp_envelope_param["release"],
-        },
-    }).toDestination();
+    //Define the LFO scales that will be used for pitch modulation
+    let osc1_lfo_scale = osc1_lfo_scales[osc_idx]
+    let osc2_lfo_scale = osc2_lfo_scales[osc_idx]
 
-    //Set the volume of the oscillators
-    osc1.volume.value = convert_to_db(osc1_param["volume"])
-    osc2.volume.value = convert_to_db(osc2_param["volume"])
+    //Compute the range of the LFO pitch modulation
+    let note_freq = Tone.Frequency(note).toFrequency()
 
+    osc1_lfo_scale.min = note_freq - osc1_param["mod_amt"]
+    osc1_lfo_scale.max = note_freq + osc1_param["mod_amt"]
+    osc2_lfo_scale.min = note_freq - osc2_param["mod_amt"]
+    osc2_lfo_scale.max = note_freq + osc2_param["mod_amt"]
 
-    //The note duration is maximum a cycle of the sequencer
-    osc1.triggerAttackRelease(note, (60/BPM)/4);
-    osc2.triggerAttackRelease(note, (60/BPM)/4);
+    //Trigger the filter envelope
+    lpf_envelope.triggerAttackRelease((60/BPM)/4 - 0.002)
 
-    //Dispose the osc to avoid overload
-    setTimeout(() => {
-        osc1.dispose();
-        osc2.dispose();
-    }, 5000);
+    //Trigger the oscillators
+    // the note is maximum one step duration
+    osc1.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
+    osc2.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
 }
+
+
+//Function to be called when MULTIPLE notes must be played
+function play_step_notes(step_nb){
+
+    //First get all the index of the activated notes in this step
+    let triggered_notes_idx = []
+    for (let j=0; j<MAX_OCTAVE; j++){
+        for (let i=step_nb*12; i<step_nb*12+12; i++) {
+
+            //Current index
+            let true_idx = j*12*NB_STEPS + i
+
+            //If this note is activated
+            // and the nb of triggered notes is < NB_VOICES_POLYPHONY,
+            // add this index to the list of triggered notes
+            if (notes_seqs[true_idx] == 1 && triggered_notes_idx.length < NB_VOICES_POLYPHONY) {
+                triggered_notes_idx.push(true_idx)
+            }
+        }
+    }
+
+    //Finally call the play_note function for each note of the step
+    // with different oscillators
+    for (let i=0; i<triggered_notes_idx.length; i++) {
+        play_note(triggered_notes_idx[i], i)
+    }
+}
+
 
 
 function convert_to_note_and_octave(key_index){
