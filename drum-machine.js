@@ -2,51 +2,59 @@ import "https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"
 
 
 //Waiting for the HTML content to be loaded
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('click', function() {
 
-    //Creation of the keys of the drum machine
-    drum_machine_section()
+    if (Tone.context.state !== 'running') {
+        Tone.start()
 
-    //Creation of the button section of the drum machine
-    drum_machine_controls_section()
+        //Creation of the keys of the drum machine
+        synth_section()
 
-    //Load mode button
-    const mode_button = document.getElementById("mode_button")
-    mode_button.addEventListener('click', function() {
-        switch_mode()
-        update_mode_button()
-    })
+        //Creation of the synth knobs
+        synth_controls_section()
 
-    //Load octave buttons
-    const octave_down = document.getElementById("octave_down")
-    octave_down.addEventListener('click', function() {
-        change_octave(-1)
-    })
-    const octave_up = document.getElementById("octave_up")
-    octave_up.addEventListener('click', function() {
-        change_octave(1)
-    })
+        //Correctly rotates the knobs
+        update_knobs_display()
 
-    //Tempo knob and screen
-    const tempo_button = document.getElementById('tempo_button')
-    const screen = document.getElementById('screen')
-    knob_rotation(tempo_button);
-    change_screen_display(BPM)
+        //Load mode button
+        const mode_button = document.getElementById("mode_button")
+        mode_button.addEventListener('click', function() {
+            switch_mode()
+            update_mode_button()
+        })
+
+        //Load octave buttons
+        const octave_down = document.getElementById("octave_down")
+        octave_down.addEventListener('click', function() {
+            change_octave(-1)
+        })
+        const octave_up = document.getElementById("octave_up")
+        octave_up.addEventListener('click', function() {
+            change_octave(1)
+        })
+
+        //Tempo knob and screen
+        const tempo_button = document.getElementById('tempo_button')
+        const screen = document.getElementById('screen')
+        knob_rotation(tempo_button);
+        change_screen_display(BPM)
 
 
-    //Play/pause button
-    const play_button = document.getElementById("play_button")
-    play_button.addEventListener('click', function() {
+        //Play/pause button
+        const play_button = document.getElementById("play_button")
+        play_button.addEventListener('click', function() {
 
-        if(play == 0){
-            play_seq()
-        }else{
-            stop_seq()
-        }
-        play = 1 - play
-        update_play_button()
-    })
+            if(play == 0){
+                play_seq()
+            }else{
+                stop_seq()
+            }
+            play = 1 - play
+            update_play_button()
+        })
 
+        load_synth_elements()
+    }
 
 });
 
@@ -59,16 +67,14 @@ document.addEventListener('DOMContentLoaded', function() {
 let counter = 0
 
 //Min BPM, max BPM and starting BPM
-const MIN_BPM = 20
-const MAX_BPM = 250
-let BPM = Math.round(MIN_BPM+(MAX_BPM-MIN_BPM)/2)
+let BPM = 120
 
 //Rotative buttons range limits
 const MIN_ROTATION = -145;
 const MAX_ROTATION = 145;
 
 //Play mode (drum machine or synth)
-let mode = 0
+let mode = 1
 //Play state
 let play = 0
 //Edit state
@@ -91,7 +97,7 @@ const audio_context = new AudioContext()
 Tone.context.lookAhead = 0
 
 //Paths to samples for the drum machine
-const samples = [
+const sample_paths = [
     "samples/kick.wav",
     "samples/snare.wav",
     "samples/closed_hihat.wav",
@@ -118,6 +124,7 @@ for(let i=0; i<notes_seqs.length; i++){
 
 //Synth parameters
 const SETTING_BOUNDS = {
+    bpm: [20, 250],
     attack: [0.0, 2.0],
     decay: [0.0, 2.0],
     sustain: [0.0, 1.0],
@@ -151,8 +158,8 @@ let osc2_param = {
 };
 
 let lfo_param = {
-    waveform: "sawtooth",
-    frequency: 20,
+    waveform: "sine",
+    frequency: 10,
 };
 
 let lpf_param = {
@@ -161,7 +168,7 @@ let lpf_param = {
     rolloff: -24,
     resonance: 0,
     mod_amt: 0,
-    env_amt: 1000,
+    env_amt: 0,
 }
 
 let amp_envelope_param = {
@@ -179,9 +186,10 @@ let filt_envelope_param = {
 };
 
 
-//This event ensures that all the synth elements will be loaded
+//This event ensures that all the audio contexts are loaded
 // after a user event, preventing some JS warnings
 document.addEventListener('click', function() {
+
     if (Tone.context.state !== 'running') {
         Tone.start()
         load_synth_elements()
@@ -286,11 +294,9 @@ function stop_all_timers() {
 function switch_mode(){
     if (mode == 0){
         synth_section()
-        synth_controls_section()
         toggle_all_highlight_notes()
     }else{
         drum_machine_section()
-        drum_machine_controls_section()
     }
     toggle_edit_mode(-1)
     mode = 1 - mode
@@ -339,13 +345,28 @@ function render_leds_edit(edit_sample_index) {
     })
 }
 
+
 function disable_all_select_buttons() {
     document.querySelectorAll(".select-button").forEach(button => button.style.backgroundColor = "")
 }
 
+
 function display_rotate_knob(knob, rotation_angle) {
     knob.style.transform = `rotate(${rotation_angle}deg)`;
 }
+
+
+function get_knob_rotation(knob){
+    var st = window.getComputedStyle(knob, null);
+    var tm = st.getPropertyValue("transform") ||
+             "none";
+    if (tm != "none") {
+      var values = tm.split('(')[1].split(')')[0].split(',');
+      return Math.round(Math.atan2(values[1],values[0]) * (180/Math.PI));
+    }
+    return 0;
+}
+
 
 function drum_machine_section() {
     var p = document.querySelector(".play-section");
@@ -382,9 +403,11 @@ function drum_machine_section() {
         e.appendChild(l)
         k.appendChild(e)
         //Create selectors
-        e = document.createElement("div")
+        e = document.createElement("img")
         e.classList.add("select-button")
-        e.textContent = "S"
+        //e.textContent = "S"
+        e.src = "assets/edit.svg"
+        e.draggable = false
         s.appendChild(e)
         //Create step leds
         step_led = document.createElement("div")
@@ -395,15 +418,6 @@ function drum_machine_section() {
 
     //Finally load the elements of the drum machine
     load_drum_machine_play_section()
-}
-
-function drum_machine_controls_section() {
-    var b = document.querySelector(".buttons");
-
-    //Remove all previous sections
-    while (b.firstChild) {
-        b.firstChild.remove(); 
-    }
 }
 
 function synth_section() {
@@ -618,7 +632,6 @@ function synth_controls_section() {
     left.appendChild(modulation)
 
 
-
     //Right section (envelopes)
     let right = document.createElement("div")
     right.classList.add("right-buttons")
@@ -662,10 +675,124 @@ function synth_controls_section() {
     b.appendChild(left)
     b.appendChild(right)
 
-
+    update_knobs_display()
     load_synth_button_section()
+}
 
 
+function update_knobs_display() {
+    let knob_list = document.querySelectorAll('.rotate-button, .mini-rotate-button')
+
+    knob_list.forEach(knob => {
+
+        //BPM
+        if (knob.id == "tempo_button") {
+            var param = BPM
+            var interpol_method = inverse_linear_interpolation
+            var bound_param = "bpm"
+        }
+
+        //Envelopes
+        if (knob.id.includes("_env_knob")) {
+            let knob_id_splitted = knob.id.split('_')
+            let setting = knob_id_splitted[0]
+            let envelope = knob_id_splitted[1]
+            if (envelope == "filter") {
+                var params = filt_envelope_param
+            } else if (envelope == "amplifier") {
+                var params = amp_envelope_param
+            }
+            if (setting == "sustain") {
+                var interpol_method = inverse_linear_interpolation
+            } else {
+                var interpol_method = inverse_exp_interpolation
+            }
+            var param = params[setting]
+            var bound_param = setting
+        }
+
+        //LFP
+        if (knob.id == "lpf_cutoff_knob" || knob.id == "lpf_resonance_knob") {
+            let setting = knob.id.split('_')[1]
+            var param = lpf_param[setting]
+            var interpol_method = inverse_exp_interpolation
+            var bound_param = "lpf_"+setting
+        } else if (knob.id == "lpf_cutoff_mod_knob") {
+            let setting = "mod_amt"
+            var param = lpf_param[setting]
+            var interpol_method = inverse_exp_interpolation
+            var bound_param = "lpf_"+setting
+        } else if (knob.id == "lpf_envelope_mod_knob") {
+            let setting = "env_amt"
+            var param = lpf_param[setting]
+            var interpol_method = inverse_exp_interpolation
+            var bound_param = "lpf_"+setting
+        }
+
+        //Mixer
+        if (knob.id.includes("vol_knob")) {
+            var bound_param = "osc_volume"
+            var interpol_method = inverse_linear_interpolation
+            if (knob.id.split('_')[0] == "osc1") {
+                param = osc1_param["volume"]
+            } else {
+                param = osc2_param["volume"]
+            }
+        }
+
+        //OSC
+        if (knob.id.includes("waveform_selector")) {
+            let osc = knob.id.split('_')[0]
+            if (osc == "osc1") {
+                var waveform = osc1_param["waveform"]
+            } else if (osc == "osc2") {
+                var waveform = osc2_param["waveform"]
+            } else {
+                var waveform = lfo_param["waveform"]
+                if (waveform == "square") {
+                    waveform = "pulse"
+                }
+            }
+            knob.src = "assets/"+waveform+"-wave.svg"
+        } else if (knob.id == "osc1_pitch_knob") {
+            var bound_param = "osc1_pitch"
+            var interpol_method = inverse_linear_interpolation
+            var param = osc1_param["pitch"]
+        } else if (knob.id == "osc2_pulse_width_knob") {
+            var bound_param = "osc2_pulse_width"
+            var interpol_method = inverse_linear_interpolation
+            var param = osc2_param["pulse_width"]
+        } else if (knob.id == "osc_freq_mod_knob") {
+            var bound_param = "osc_mod_amt"
+            var interpol_method = inverse_exp_interpolation
+            var param = osc1_param["mod_amt"]
+        } else if (knob.id == "pwm_mod_knob") {
+            var bound_param = "osc2_pwm"
+            var interpol_method = inverse_linear_interpolation
+            var param = osc2_param["pwm"]
+        }
+
+        //LFO Rate
+        if (knob.id == "lfo_rate_knob") {
+            var bound_param = "lfo_rate"
+            var interpol_method = inverse_exp_interpolation
+            var param = lfo_param["frequency"]
+        }
+
+
+        //Apply the rotation with the variables defined above
+        if (typeof param !== 'undefined') {
+            let angle_value = interpol_method(
+                param,
+                MIN_ROTATION,
+                MAX_ROTATION,
+                SETTING_BOUNDS[bound_param][0],
+                SETTING_BOUNDS[bound_param][1]
+            )
+            display_rotate_knob(knob, angle_value)
+        }
+
+    })
 }
 
 
@@ -770,14 +897,16 @@ function exp_interpolation(x, x1, x2, y1, y2, k=2) {
     return y1 + (y2 - y1) * Math.pow(t, k);
 }
 
-function inverse_exp_interpolation(y, x1, x2, y1, y2) {
-    return x1 + (x2 - x1) * (Math.log(y / y1) / Math.log(y2 / y1));
+function inverse_exp_interpolation(y, x1, x2, y1, y2, k=2) {
+    let t = (y - y1) / (y2 - y1);
+    return x1 + (x2 - x1) * Math.pow(t, 1/k);
 }
 
 
 function knob_rotation(knob) {
-    let currentRotation = 0; //Track the current rotation angle
-  
+    //let currentRotation = 0; //Track the current rotation angle
+    let currentRotation = get_knob_rotation(knob)
+
     //Listen for the wheel event to rotate the knob
     knob.addEventListener('wheel', (e) => {
         //Prevent default scroll behavior
@@ -821,8 +950,7 @@ function knob_rotation(knob) {
 
         //The following blocks connect the buttons to their respective functions
         if (knob.id.includes("tempo")) {
-            BPM = Math.round((MAX_BPM-MIN_BPM)/(MAX_ROTATION-MIN_ROTATION)*currentRotation + MIN_BPM+(MAX_BPM-MIN_BPM)/2)
-            change_screen_display(BPM)
+            change_bpm(currentRotation)
         }
 
         if (knob.id.includes("vol_knob")) {
@@ -975,6 +1103,19 @@ function load_synth_button_section() {
         let element = document.getElementById(knob_id)
         knob_rotation(element)
     })
+}
+
+
+function change_bpm(value) {
+    let new_value = linear_interpolation(
+        value, 
+        MIN_ROTATION, 
+        MAX_ROTATION, 
+        SETTING_BOUNDS["bpm"][0],
+        SETTING_BOUNDS["bpm"][1]
+    )
+    BPM = Math.round(new_value)
+    change_screen_display(BPM)
 }
 
 
@@ -1238,7 +1379,7 @@ function toggle_edit_mode(index) {
         edit_mode = index
         all_sample_led_off()
         render_leds_edit(edit_mode)
-        document.querySelectorAll(".select-button")[index].style.backgroundColor = "#ff0000"
+        document.querySelectorAll(".select-button")[index].style.backgroundColor = "#ff6a00"
     }
 }
 
@@ -1275,9 +1416,9 @@ function change_octave(nb){
 
 
 function play_sample(sample_index){
-    if(sample_index < samples.length){
+    if(sample_index < sample_paths.length){
         //Loading audio samples in a buffer
-        fetch(samples[sample_index]).then(response => response.arrayBuffer()).then(buffer => audio_context.decodeAudioData(buffer)).then(buffer => {
+        fetch(sample_paths[sample_index]).then(response => response.arrayBuffer()).then(buffer => audio_context.decodeAudioData(buffer)).then(buffer => {
             var track = audio_context.createBufferSource();
             track.buffer = buffer;
             track.connect(audio_context.destination);
@@ -1358,3 +1499,56 @@ function convert_to_note_and_octave(key_index){
 function convert_to_db(value) {
     return 20*Math.log10(value+Number.MIN_VALUE)
 }
+
+
+
+
+
+
+
+
+
+/*
+let samples = [];
+for (let i=0; i<NB_STEPS; i++){
+    samples.push(null)
+}
+let audioContext = new (window.AudioContext || window.webkitAudioContext)(); // Web Audio context
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the file input element and add an event listener
+    const uploadButton = document.getElementById('uploadButton');
+
+    uploadButton.addEventListener('change', handleFileUpload);
+})
+
+// Function to handle file upload
+function handleFileUpload(event) {
+  const file = event.target.files[0]; // Get the first file from the input (assuming only one file is uploaded at a time)
+
+  if (file) {
+    let reader = new FileReader();
+
+    reader.onload = function(e) {
+      const arrayBuffer = e.target.result; // Get the ArrayBuffer from the FileReader
+
+      // Decode the audio data into an AudioBuffer
+      audioContext.decodeAudioData(arrayBuffer, function(buffer) {
+        // Successfully decoded, now push the buffer into the samples array
+        samples[0] = buffer;
+        console.log("Sample loaded and added to the samples array.");
+      }, function(error) {
+        console.error("Error decoding audio data:", error);
+        alert("Failed to load the audio file.");
+      });
+    };
+
+    // Read the file as an ArrayBuffer
+    reader.readAsArrayBuffer(file);
+  } else {
+    console.log("No file selected");
+  }
+  console.log(samples)
+}
+*/

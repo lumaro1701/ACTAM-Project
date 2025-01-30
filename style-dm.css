@@ -42,6 +42,16 @@
     cursor: pointer;
 }
 
+.start-message {
+    font-size: 250%;
+    font-family: Monaco;
+    font-weight: bold;
+    height: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
 
 
 /* --- Button and knobs section --- */
@@ -51,6 +61,7 @@
     width: 90%;
     padding: 10px;
     border-radius: 10px;
+    text-align: center;
     display: flex;
     margin: auto;
 }
@@ -160,7 +171,7 @@
 }
 
 #mode_button {
-    background-color: rgb(88, 88, 88);
+    background-color: rgb(123, 123, 123);
     height: 100%;
     width: 8%;
     border-radius: 10px;
@@ -168,6 +179,10 @@
     margin-left: 5px;
     margin-right: 150px;
     cursor: pointer;
+}
+
+#mode_button:hover {
+    background-color: rgb(93, 93, 93);
 }
 
 #play_button {
@@ -179,6 +194,10 @@
     margin-left: 5px;
     margin-right: 5px;
     cursor: pointer;
+}
+
+#play_button:hover {
+    background-color: rgb(1, 151, 3);
 }
 
 .octave-btn {
@@ -226,6 +245,7 @@
     padding: 10px;
     margin: auto;
     justify-content: space-between;
+    text-align: center;
 }
 
 .keyboard {
@@ -251,14 +271,14 @@
     margin-left: 5px;
     margin-right: 5px;
     font-size: 120%;
-    color: rgb(201, 131, 0);
+    color: rgb(89, 89, 89);
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-.select-button-enable {
-    background-color: rgb(255, 106, 0) !important;
+.select-button:hover {
+    background-color: rgb(194, 197, 2);
 }
 
 .key {
@@ -270,6 +290,10 @@
     margin-left: 5px;
     margin-right: 5px;
     cursor: pointer;
+}
+
+.key:hover {
+    background-color: rgb(203, 140, 24);
 }
 
 .step {
@@ -291,8 +315,16 @@
     cursor: pointer;
 }
 
+.note:hover {
+    background-color: rgb(193, 189, 181);
+}
+
 .black-note {
     background-color: rgb(16, 16, 16);
+}
+
+.black-note:hover {
+    background-color: rgb(41, 41, 41);
 }
 
 .led-on {
