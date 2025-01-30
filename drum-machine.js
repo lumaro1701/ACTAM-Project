@@ -96,7 +96,10 @@ const audio_context = new AudioContext()
 //Remove the slight delay when triggering a note with ToneJS
 Tone.context.lookAhead = 0
 
-//Paths to samples for the drum machine
+//Array containing the buffers of the drum machine samples
+var samples = Array(NB_STEPS).fill(null)
+
+//Load the default samples into the previously defined array
 const sample_paths = [
     "samples/kick.wav",
     "samples/snare.wav",
@@ -105,6 +108,14 @@ const sample_paths = [
     "samples/shaker.wav",
     "samples/fill.wav",
 ]
+
+for (let i=0; i<sample_paths.length; i++) {
+    if (i < samples.length) {
+        samples[i] = await load_audio_file(sample_paths[i])
+    }
+}
+
+
 
 //2D array for the drum machine step sequencer
 let sample_seqs = Array(NB_STEPS)
@@ -116,10 +127,7 @@ for(let i=0; i<sample_seqs.length; i++){
 }
 
 //Array for the synth step sequencer
-let notes_seqs = Array(NB_STEPS*12*MAX_OCTAVE)
-for(let i=0; i<notes_seqs.length; i++){
-    notes_seqs[i] = 0
-}
+let notes_seqs = Array(NB_STEPS*12*MAX_OCTAVE).fill(0)
 
 
 //Synth parameters
@@ -391,7 +399,12 @@ function drum_machine_section() {
     s.classList.add("selectors")
     p.appendChild(s)
 
-    //Create keys and selectors
+    //Add the upload buttons section
+    let u = document.createElement("div")
+    u.classList.add("upload")
+    p.appendChild(u)
+
+    //Create keys, selectors and upload buttons
     let e
     let l
     let step_led
@@ -405,10 +418,22 @@ function drum_machine_section() {
         //Create selectors
         e = document.createElement("img")
         e.classList.add("select-button")
-        //e.textContent = "S"
         e.src = "assets/edit.svg"
         e.draggable = false
         s.appendChild(e)
+        //Create upload buttons
+        e = document.createElement("img")
+        e.classList.add("upload-button")
+        e.id = "upload_button_mask_"+i.toString()
+        e.src = "assets/upload.svg"
+        e.draggable = false
+        let b = document.createElement("input")
+        b.style.display = "none"
+        b.id = "upload_button_"+i.toString()
+        b.type = "file"
+        b.accept = "audio/*"
+        u.appendChild(e)
+        u.appendChild(b)
         //Create step leds
         step_led = document.createElement("div")
         step_led.classList.add("step-led")
@@ -1026,6 +1051,23 @@ function load_drum_machine_play_section() {
             toggle_edit_mode(index)
         })
     })
+
+    //Upload buttons
+    for (let i=0; i<NB_STEPS; i++) {
+        let upload_btn_mask = document.getElementById('upload_button_mask_'+i.toString());
+        let upload_btn = document.getElementById('upload_button_'+i.toString())
+        upload_btn_mask.addEventListener('click', function() {
+            upload_btn.click()
+        })
+        upload_btn.addEventListener('change', async function(event) {
+            const file = event.target.files[0];  // Get the selected file
+            if (file) {
+                samples[i] = await load_audio_file(file);
+            } else {
+                console.error('No file selected');
+            }
+        });
+    }
 }
 
 function load_synth_play_section() {
@@ -1416,14 +1458,11 @@ function change_octave(nb){
 
 
 function play_sample(sample_index){
-    if(sample_index < sample_paths.length){
-        //Loading audio samples in a buffer
-        fetch(sample_paths[sample_index]).then(response => response.arrayBuffer()).then(buffer => audio_context.decodeAudioData(buffer)).then(buffer => {
-            var track = audio_context.createBufferSource();
-            track.buffer = buffer;
-            track.connect(audio_context.destination);
-            track.start(0);
-        });
+    if (samples[sample_index] !== null) {
+        const source = audio_context.createBufferSource()
+        source.buffer = samples[sample_index]
+        source.connect(audio_context.destination)
+        source.start(0)
     }
 }
 
@@ -1501,54 +1540,27 @@ function convert_to_db(value) {
 }
 
 
+async function load_audio_file(file) {
+    try {
+        //If the path to the file is provided
+        if (typeof file === 'string' || file instanceof String) {
+            let response = await fetch(file);
+            var arrayBuffer = await response.arrayBuffer();
 
+        //Else if the file object is directly provided
+        } else {
+            var arrayBuffer = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject('Error reading file');
+                reader.readAsArrayBuffer(file);
+            });
+        }
 
+        const buffer = await audio_context.decodeAudioData(arrayBuffer);
+        return buffer;
 
-
-
-
-
-/*
-let samples = [];
-for (let i=0; i<NB_STEPS; i++){
-    samples.push(null)
+    } catch (error) {
+        console.error('Error loading or decoding audio file:', error);
+    }
 }
-let audioContext = new (window.AudioContext || window.webkitAudioContext)(); // Web Audio context
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Get the file input element and add an event listener
-    const uploadButton = document.getElementById('uploadButton');
-
-    uploadButton.addEventListener('change', handleFileUpload);
-})
-
-// Function to handle file upload
-function handleFileUpload(event) {
-  const file = event.target.files[0]; // Get the first file from the input (assuming only one file is uploaded at a time)
-
-  if (file) {
-    let reader = new FileReader();
-
-    reader.onload = function(e) {
-      const arrayBuffer = e.target.result; // Get the ArrayBuffer from the FileReader
-
-      // Decode the audio data into an AudioBuffer
-      audioContext.decodeAudioData(arrayBuffer, function(buffer) {
-        // Successfully decoded, now push the buffer into the samples array
-        samples[0] = buffer;
-        console.log("Sample loaded and added to the samples array.");
-      }, function(error) {
-        console.error("Error decoding audio data:", error);
-        alert("Failed to load the audio file.");
-      });
-    };
-
-    // Read the file as an ArrayBuffer
-    reader.readAsArrayBuffer(file);
-  } else {
-    console.log("No file selected");
-  }
-  console.log(samples)
-}
-*/
