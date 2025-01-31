@@ -10,11 +10,9 @@ document.addEventListener('click', function() {
         //Creation of the keys of the drum machine
         synth_section()
 
-        //Creation of the synth knobs
+        //Create synth knobs and load (connect) them
         synth_controls_section()
-
-        //Correctly rotates the knobs
-        update_knobs_display()
+        load_synth_button_section()
 
         //Load mode button
         const mode_button = document.getElementById("mode_button")
@@ -102,11 +100,21 @@ var samples = Array(NB_STEPS).fill(null)
 //Load the default samples into the previously defined array
 const sample_paths = [
     "samples/kick.wav",
+    "samples/kick2.wav",
+    "samples/kick3.wav",
     "samples/snare.wav",
+    "samples/snare2.wav",
+    "samples/snare3.wav",
     "samples/closed_hihat.wav",
+    "samples/closed_hihat2.wav",
+    "samples/closed_hihat3.wav",
     "samples/open_hihat.wav",
-    "samples/shaker.wav",
-    "samples/fill.wav",
+    "samples/open_hihat2.wav",
+    "samples/clap.wav",
+    "samples/clap2.wav",
+    "samples/clap3.wav",
+    "samples/ride.wav",
+    "samples/crash.wav",
 ]
 
 for (let i=0; i<sample_paths.length; i++) {
@@ -194,16 +202,6 @@ let filt_envelope_param = {
 };
 
 
-//This event ensures that all the audio contexts are loaded
-// after a user event, preventing some JS warnings
-document.addEventListener('click', function() {
-
-    if (Tone.context.state !== 'running') {
-        Tone.start()
-        load_synth_elements()
-    }
-})
-
 function load_synth_elements() {
     //Create filter (LPF)
     window.lpf = new Tone.Filter({
@@ -266,7 +264,7 @@ function load_synth_elements() {
                     sustain: amp_envelope_param["sustain"],
                     release: amp_envelope_param["release"],
                 },
-            })            
+            })
             //Connect LFO to OSCs for pitch modulation
             let osc_lfo_scale = new Tone.Scale(0, 0)
             lfo.connect(osc_lfo_scale)
@@ -697,11 +695,42 @@ function synth_controls_section() {
         right.appendChild(env)
     })
 
+    //Upload/download buttons
+    let upload_download = document.createElement("div")
+    upload_download.id = "upload_download_section"
+
+    let texts = ["upload", "download"]
+    texts.forEach(text => {
+        let block = document.createElement("div")
+        block.id = text+"_block"
+        block.style.marginTop = "10%"
+        upload_download.appendChild(block)
+
+        let text_btn = document.createElement("div")
+        text_btn.classList.add("text-button")
+        text_btn.textContent = text.toUpperCase()+" CONFIG"
+        block.appendChild(text_btn)
+
+        let btn = document.createElement("img")
+        btn.src = "assets/"+text+".svg"
+        btn.id = text+"_btn"
+        block.appendChild(btn)
+    })
+
+    let upload_btn = document.createElement("input")
+    upload_btn.style.display = "none"
+    upload_btn.id = "upload_input"
+    upload_btn.type = "file"
+    upload_btn.accept = ".json,application/json"
+    upload_download.appendChild(upload_btn)
+
+    right.appendChild(upload_download)
+
     b.appendChild(left)
     b.appendChild(right)
 
+    //We should update the angle of each knob BEFORE actually connecting them to the parameters
     update_knobs_display()
-    load_synth_button_section()
 }
 
 
@@ -809,8 +838,6 @@ function update_knobs_display() {
         if (typeof param !== 'undefined') {
             let angle_value = interpol_method(
                 param,
-                MIN_ROTATION,
-                MAX_ROTATION,
                 SETTING_BOUNDS[bound_param][0],
                 SETTING_BOUNDS[bound_param][1]
             )
@@ -909,20 +936,20 @@ function update_osc_waveform_button(osc) {
 let intervalId = 0
 
 
-function linear_interpolation(x, x1, x2, y1, y2) {
+function linear_interpolation(x, y1, y2, x1=MIN_ROTATION, x2=MAX_ROTATION) {
     return y1 + (x - x1) * (y2 - y1) / (x2 - x1);
 }
 
-function inverse_linear_interpolation(y, x1, x2, y1, y2) {
+function inverse_linear_interpolation(y, y1, y2, x1=MIN_ROTATION, x2=MAX_ROTATION) {
     return x1 + ((x2 - x1) / (y2 - y1)) * (y - y1);
 }
 
-function exp_interpolation(x, x1, x2, y1, y2, k=2) {
+function exp_interpolation(x, y1, y2, x1=MIN_ROTATION, x2=MAX_ROTATION, k=2) {
     let t = (x - x1) / (x2 - x1);
     return y1 + (y2 - y1) * Math.pow(t, k);
 }
 
-function inverse_exp_interpolation(y, x1, x2, y1, y2, k=2) {
+function inverse_exp_interpolation(y, y1, y2, x1=MIN_ROTATION, x2=MAX_ROTATION, k=2) {
     let t = (y - y1) / (y2 - y1);
     return x1 + (x2 - x1) * Math.pow(t, 1/k);
 }
@@ -1083,11 +1110,6 @@ function load_synth_play_section() {
 }
 
 
-function load_drum_machine_button_section() {
-
-}
-
-
 function load_synth_button_section() {
 
     //Waveform buttons
@@ -1145,17 +1167,52 @@ function load_synth_button_section() {
         let element = document.getElementById(knob_id)
         knob_rotation(element)
     })
+
+    //Upload/download buttons
+    let download_btn = document.getElementById("download_btn")
+    download_btn.addEventListener('click', function() {
+        export_data()
+    })
+
+    let upload_btn = document.getElementById("upload_btn")
+    let upload_input = document.getElementById("upload_input")
+    upload_btn.addEventListener('click', function() {
+        upload_input.click()
+    })
+    upload_input.addEventListener('change', function(event) {
+        const file = event.target.files[0]; // Get the selected file
+        if (file && file.type === 'application/json') {
+            const reader = new FileReader();
+            
+            // On load, parse the JSON file
+            reader.onload = function(e) {
+                try {
+                    const jsonData = JSON.parse(e.target.result); // Parse JSON string into object
+                    import_data(jsonData)
+                } catch (err) {
+                    console.error("Error parsing JSON:", err);
+                }
+            };
+
+            // Read the file as a text string
+            reader.readAsText(file);
+        } else {
+            console.error("Please select a valid JSON file.");
+        }
+    })
 }
 
 
-function change_bpm(value) {
-    let new_value = linear_interpolation(
-        value, 
-        MIN_ROTATION, 
-        MAX_ROTATION, 
-        SETTING_BOUNDS["bpm"][0],
-        SETTING_BOUNDS["bpm"][1]
-    )
+function change_bpm(value, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = linear_interpolation(
+            value, 
+            SETTING_BOUNDS["bpm"][0],
+            SETTING_BOUNDS["bpm"][1]
+        )
+    }
+    
     BPM = Math.round(new_value)
     change_screen_display(BPM)
 }
@@ -1177,14 +1234,13 @@ function change_osc_waveform(osc) {
         osc2_param["waveform"] = new_waveform
         for (let i=0; i<oscillators2.length; i++) {
             oscillators2[i].oscillator.type = new_waveform
-            //Update duty cycle and connect/disconnect PWM
+            //Update pulse width and connect/disconnect PWM
             if (new_waveform == "pulse") {
                 oscillators2[i].oscillator.width.value = osc2_param["pulse_width"]
                 osc2_pwm_scales[i].connect(oscillators2[i].oscillator.width)
             } else if (waveforms[index] == "pulse") { //If current waveform is "pulse"
                 osc2_pwm_scales[i].disconnect(oscillators2[i].oscillator.width)
             }
-            //Update waveform
         }
     }
     //LFO
@@ -1203,14 +1259,16 @@ function change_osc_waveform(osc) {
     update_osc_waveform_button(osc)
 }
 
-function change_osc_vol(osc_name, value) {
-    let new_value = linear_interpolation(
-        value, 
-        MIN_ROTATION, 
-        MAX_ROTATION, 
-        SETTING_BOUNDS["osc_volume"][0],
-        SETTING_BOUNDS["osc_volume"][1]
-    )
+
+function change_osc_vol(osc_name, value, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = linear_interpolation(
+            value, 
+            SETTING_BOUNDS["osc_volume"][0],
+            SETTING_BOUNDS["osc_volume"][1]
+        )
+    }
 
     if (osc_name == "osc1") {
         osc1_param["volume"] = new_value
@@ -1226,28 +1284,30 @@ function change_osc_vol(osc_name, value) {
 }
 
 
-function change_osc_freq_modulation(value) {
-    let new_value = exp_interpolation(
-        value, 
-        MIN_ROTATION, 
-        MAX_ROTATION, 
-        SETTING_BOUNDS["osc_mod_amt"][0],
-        SETTING_BOUNDS["osc_mod_amt"][1]
-    )
+function change_osc_freq_modulation(value, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = exp_interpolation(
+            value, 
+            SETTING_BOUNDS["osc_mod_amt"][0],
+            SETTING_BOUNDS["osc_mod_amt"][1]
+        )
+    }
 
     osc1_param["mod_amt"] = new_value
     osc2_param["mod_amt"] = new_value
 }
 
 
-function change_osc1_pitch(value) {
-    let new_value = linear_interpolation(
-        value, 
-        MIN_ROTATION, 
-        MAX_ROTATION, 
-        SETTING_BOUNDS["osc1_pitch"][0],
-        SETTING_BOUNDS["osc1_pitch"][1]
-    )
+function change_osc1_pitch(value, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = linear_interpolation(
+            value, 
+            SETTING_BOUNDS["osc1_pitch"][0],
+            SETTING_BOUNDS["osc1_pitch"][1]
+        )
+    }
 
     osc1_param["pitch"] = new_value
     oscillators1.forEach(osc => {
@@ -1255,14 +1315,15 @@ function change_osc1_pitch(value) {
     })
 }
 
-function change_osc2_pulse_width(value) {
-    let new_value = linear_interpolation(
-        value, 
-        MIN_ROTATION, 
-        MAX_ROTATION, 
-        SETTING_BOUNDS["osc2_pulse_width"][0],
-        SETTING_BOUNDS["osc2_pulse_width"][1]
-    )
+function change_osc2_pulse_width(value, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = linear_interpolation(
+            value, 
+            SETTING_BOUNDS["osc2_pulse_width"][0],
+            SETTING_BOUNDS["osc2_pulse_width"][1]
+        )
+    }
 
     osc2_param["pulse_width"] = new_value
 
@@ -1274,14 +1335,15 @@ function change_osc2_pulse_width(value) {
 
 }
 
-function change_osc2_pwm(value) {
-    let new_value = linear_interpolation(
-        value, 
-        MIN_ROTATION, 
-        MAX_ROTATION, 
-        SETTING_BOUNDS["osc2_pwm"][0],
-        SETTING_BOUNDS["osc2_pwm"][1]
-    )
+function change_osc2_pwm(value, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = linear_interpolation(
+            value, 
+            SETTING_BOUNDS["osc2_pwm"][0],
+            SETTING_BOUNDS["osc2_pwm"][1]
+        )
+    }
 
     osc2_param["pwm"] = new_value
     osc2_pwm_scales.forEach(scale => {
@@ -1291,14 +1353,15 @@ function change_osc2_pwm(value) {
 }
 
 
-function change_envelope_settings(env, setting, value, interpol_method=linear_interpolation) {
-    let new_value = interpol_method(
-        value, 
-        MIN_ROTATION, 
-        MAX_ROTATION, 
-        SETTING_BOUNDS[setting][0],
-        SETTING_BOUNDS[setting][1]
-    )
+function change_envelope_settings(env, setting, value, interpol_method=linear_interpolation, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = interpol_method(
+            value, 
+            SETTING_BOUNDS[setting][0],
+            SETTING_BOUNDS[setting][1]
+        )
+    }
     
     if (env == "filter") {
         filt_envelope_param[setting] = new_value
@@ -1327,28 +1390,30 @@ function change_envelope_settings(env, setting, value, interpol_method=linear_in
 }
 
 
-function change_lfo_rate(value) {
-    let new_value = exp_interpolation(
-        value, 
-        MIN_ROTATION,
-        MAX_ROTATION,
-        SETTING_BOUNDS["lfo_rate"][0],
-        SETTING_BOUNDS["lfo_rate"][1],
-    )
+function change_lfo_rate(value, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = exp_interpolation(
+            value, 
+            SETTING_BOUNDS["lfo_rate"][0],
+            SETTING_BOUNDS["lfo_rate"][1],
+        )
+    }
 
     lfo_param["frequency"] = new_value
     lfo.frequency.value = new_value
 }
 
 
-function change_lpf_settings(setting, value, interpol_method=exp_interpolation) {
-    let new_value = interpol_method(
-        value, 
-        MIN_ROTATION,
-        MAX_ROTATION,
-        SETTING_BOUNDS["lpf_"+setting][0],
-        SETTING_BOUNDS["lpf_"+setting][1],
-    )
+function change_lpf_settings(setting, value, interpol_method=exp_interpolation, angle=true) {
+    var new_value = value
+    if (angle) {
+        new_value = interpol_method(
+            value, 
+            SETTING_BOUNDS["lpf_"+setting][0],
+            SETTING_BOUNDS["lpf_"+setting][1],
+        )
+    }
 
     lpf_param[setting] = new_value
 
@@ -1493,7 +1558,7 @@ function play_note(key_index, osc_idx=0) {
 
     //Trigger the oscillators
     // the note is maximum one step duration
-    osc1.triggerAttackRelease(note, (60/BPM)/4 - 0.002, undefined)
+    osc1.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
     osc2.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
 }
 
@@ -1562,5 +1627,78 @@ async function load_audio_file(file) {
 
     } catch (error) {
         console.error('Error loading or decoding audio file:', error);
+    }
+}
+
+
+function export_data() {
+    const data = {
+        bpm: BPM,
+        osc1: osc1_param,
+        osc2: osc2_param,
+        lpf: lpf_param,
+        lfo: lfo_param,
+        amp_envelope: amp_envelope_param,
+        filter_envelope: filt_envelope_param,
+        drum_machine_array: sample_seqs,
+        synth_array: notes_seqs
+    }
+    const jsonData = JSON.stringify(data, null, 2)
+
+    const blob = new Blob([jsonData], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'data.json';  // Name of the downloaded file
+    link.click();
+}
+
+
+function import_data(jsonData) {
+    try {
+        BPM = jsonData.bpm
+        osc1_param = jsonData.osc1
+        osc2_param = jsonData.osc2
+        lpf_param = jsonData.lpf
+        lfo_param = jsonData.lfo
+        amp_envelope_param = jsonData.amp_envelope
+        filt_envelope_param = jsonData.filter_envelope
+        sample_seqs = jsonData.drum_machine_array
+        notes_seqs = jsonData.synth_array
+
+        load_synth_elements()
+
+        //Apply needed changes
+        change_bpm(BPM, false)
+        change_osc1_pitch(osc1_param["pitch"], false)
+        change_osc2_pulse_width(osc2_param["pulse_width"], false)
+        change_osc2_pwm(osc2_param["pwm"], false)
+        change_osc_vol("osc1", osc1_param["volume"], false)
+        change_osc_vol("osc2", osc2_param["volume"], false)
+        change_osc_freq_modulation(osc1_param["mod_amt"], false)
+        change_lpf_settings("mod_amt", lpf_param["mod_amt"], linear_interpolation, false)
+
+        for (let i=0; i<oscillators2.length; i++) {
+            //Update pulse width and connect/disconnect PWM
+            if (osc2_param["waveform"] == "pulse") {
+                oscillators2[i].oscillator.width.value = osc2_param["pulse_width"]
+                osc2_pwm_scales[i].connect(oscillators2[i].oscillator.width)
+            }
+        }
+
+        //Update knobs display and reload them
+        synth_controls_section()
+        load_synth_button_section()
+
+        //Update play section rendering
+        toggle_edit_mode(-1)
+        if (mode == 0) {
+            drum_machine_section()
+        } else if (mode == 1) {
+            synth_section()
+            toggle_all_highlight_notes()
+        }
+
+    } catch(error) {
+        console.error("Error when importing data:", error)
     }
 }
