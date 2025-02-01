@@ -55,7 +55,7 @@
 
 
 /* --- Button and knobs section --- */
-.buttons {
+.knobs-section {
     background-color: rgb(82, 61, 42);
     height: 38%;
     width: 90%;
@@ -66,14 +66,14 @@
     margin: auto;
 }
 
-.left-buttons {
+.left-knobs {
     /*border: 3px solid black;*/
     width: 55%;
     display: flex;
     flex-direction: column;
 }
 
-.right-buttons {
+.right-knobs {
     /*border: 3px solid black;*/
     width: 45%;
     display: flex;
@@ -108,14 +108,6 @@
 
 #osc2, #lfo, #mixer {
     border-right: 3px solid rgb(30, 30, 30);
-}
-
-.margin-rotate-btn {
-    margin-bottom: 12px;
-}
-
-.margin-mini-rotate-btn {
-    margin-bottom: 22px;
 }
 
 .env-knobs {
@@ -179,7 +171,7 @@
 }
 
 /* --- Controls section --- */
-.controls {
+.controls-section {
     height: 7%;
     width: 90%;
     display: flex;
@@ -254,7 +246,7 @@
 
 }
 
-#tempo_button {
+#tempo_knob {
     background-color: #c30000 !important;
 }
 

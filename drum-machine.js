@@ -7,47 +7,45 @@ document.addEventListener('click', function() {
     if (Tone.context.state !== 'running') {
         Tone.start()
 
-        //Creation of the keys of the drum machine
-        synth_section()
+        //Creation of the synth play section
+        create_synth_play_section()
 
         //Create synth knobs and load (connect) them
-        synth_controls_section()
-        load_synth_button_section()
+        create_synth_knobs_section()
+        load_synth_knobs_section()
 
         //Load mode button
-        const mode_button = document.getElementById("mode_button")
+        let mode_button = document.getElementById("mode_button")
         mode_button.addEventListener('click', function() {
             switch_mode()
-            update_mode_button()
         })
 
         //Load octave buttons
-        const octave_down = document.getElementById("octave_down")
+        let octave_down = document.getElementById("octave_down")
         octave_down.addEventListener('click', function() {
             change_octave(-1)
         })
-        const octave_up = document.getElementById("octave_up")
+        let octave_up = document.getElementById("octave_up")
         octave_up.addEventListener('click', function() {
             change_octave(1)
         })
 
         //Tempo knob and screen
-        const tempo_button = document.getElementById('tempo_button')
-        const screen = document.getElementById('screen')
-        knob_rotation(tempo_button);
-        change_screen_display(BPM)
-
+        let tempo_knob = document.getElementById('tempo_knob')
+        let screen = document.getElementById('screen')
+        knob_rotation(tempo_knob)
+        change_screen_display(BPM) //Display the BPM at the loading
 
         //Play/pause button
-        const play_button = document.getElementById("play_button")
+        let play_button = document.getElementById("play_button")
         play_button.addEventListener('click', function() {
 
-            if(play == 0){
+            if(PLAY == 0){ //Not playing
                 play_seq()
-            }else{
+            }else{ //Playing
                 stop_seq()
             }
-            play = 1 - play
+            PLAY = 1 - PLAY
             update_play_button()
         })
 
@@ -61,22 +59,23 @@ document.addEventListener('click', function() {
 
 
 
-//-----MODEL-----
-let counter = 0
+
+
+// -----------------------------------------------
+// -------------------- MODEL --------------------
+// -----------------------------------------------
 
 //Min BPM, max BPM and starting BPM
 let BPM = 120
 
-//Rotative buttons range limits
-const MIN_ROTATION = -145;
-const MAX_ROTATION = 145;
+//Drum machine (0) or synth (1) mode
+let MODE = 1
 
-//Play mode (drum machine or synth)
-let mode = 1
-//Play state
-let play = 0
-//Edit state
-let edit_mode = -1
+//Play state (1 = sequence is playing)
+let PLAY = 0
+
+//Edit state (-1 if not in edit state)
+let EDIT = -1
 
 //Octave settings
 let OCTAVE = 3
@@ -123,23 +122,18 @@ for (let i=0; i<sample_paths.length; i++) {
     }
 }
 
-
-
 //2D array for the drum machine step sequencer
 let sample_seqs = Array(NB_STEPS)
 for(let i=0; i<sample_seqs.length; i++){
-    sample_seqs[i] = Array(NB_STEPS)
-    for(let j=0; j<sample_seqs[i].length; j++){
-        sample_seqs[i][j] = 0
-    }
+    sample_seqs[i] = Array(NB_STEPS).fill(0)
 }
 
 //Array for the synth step sequencer
 let notes_seqs = Array(NB_STEPS*12*MAX_OCTAVE).fill(0)
 
-
 //Synth parameters
 const SETTING_BOUNDS = {
+    knobs_rotation: [-145, 145],
     bpm: [20, 250],
     attack: [0.0, 2.0],
     decay: [0.0, 2.0],
@@ -156,7 +150,6 @@ const SETTING_BOUNDS = {
     lpf_mod_amt: [0, 15000],
     lpf_env_amt: [0, 15000],
 }
-
 
 let osc1_param = {
     waveform: "sawtooth",
@@ -175,12 +168,12 @@ let osc2_param = {
 
 let lfo_param = {
     waveform: "sine",
-    frequency: 10,
+    frequency: 5,
 };
 
 let lpf_param = {
     type: "lowpass",
-    cutoff: 20000,
+    cutoff: 18000,
     rolloff: -24,
     resonance: 0,
     mod_amt: 0,
@@ -188,21 +181,23 @@ let lpf_param = {
 }
 
 let amp_envelope_param = {
-    attack: 0.001,
-    decay: 0.5,
-    sustain: 0,
-    release: 0.2,
+    attack: 0.0,
+    decay: 0.0,
+    sustain: 1.0,
+    release: 0.0,
 };
 
 let filt_envelope_param = {
-    attack: 0.001,
-    decay: 0.1,
-    sustain: 0.5,
-    release: 0.2,
+    attack: 0.0,
+    decay: 0.0,
+    sustain: 1.0,
+    release: 0.0,
 };
 
 
+//Create all the Tone.JS nodes for the synth and connect them together
 function load_synth_elements() {
+
     //Create filter (LPF)
     window.lpf = new Tone.Filter({
         type: lpf_param["type"],
@@ -211,20 +206,20 @@ function load_synth_elements() {
         Q: lpf_param["resonance"]
     }).toDestination();
 
-    //Create filter envelope
+
+    //Create filter envelope and connect it through a Scale object
+    window.lpf_env_scale = new Tone.Scale({
+        min: lpf_param["cutoff"],
+        max: lpf_param["cutoff"]+lpf_param["env_amt"]
+    }).connect(lpf.frequency)
+
     window.lpf_envelope = new Tone.Envelope({
         curve: "exponential",
         attack: filt_envelope_param["attack"],
         decay: filt_envelope_param["decay"],
         sustain: filt_envelope_param["sustain"],
         release: filt_envelope_param["release"],
-    })
-
-
-    //Scale the filter envelope and connect it to the filter's frequency
-    window.lpf_env_scale = new Tone.Scale(lpf_param["cutoff"], lpf_param["cutoff"]+lpf_param["env_amt"])
-    lpf_envelope.connect(lpf_env_scale)
-    lpf_env_scale.connect(lpf.frequency)
+    }).connect(lpf_env_scale)
 
 
     //Create LFO
@@ -237,12 +232,14 @@ function load_synth_elements() {
 
 
     //Connect LFO to LPF for cutoff frequency modulation
-    window.lpf_lfo = new Tone.Scale(lpf_param["cutoff"], lpf_param["cutoff"]+lpf_param["mod_amt"])
+    window.lpf_lfo = new Tone.Scale({
+        min: lpf_param["cutoff"],
+        max: lpf_param["cutoff"]+lpf_param["mod_amt"]
+    }).connect(lpf.frequency)
     lfo.connect(lpf_lfo)
-    lpf_lfo.connect(lpf.frequency)
 
 
-    //Create oscillators and connect them to the filter
+    //Create oscillators
     window.oscillators1 = []
     window.oscillators2 = []
     window.osc1_lfo_scales = []
@@ -251,9 +248,11 @@ function load_synth_elements() {
     let osc_lists = [oscillators1, oscillators2]
     let params_list = [osc1_param, osc2_param]
     let osc_lfo_scales_list = [osc1_lfo_scales, osc2_lfo_scales]
+
     for (let i=0; i<osc_lists.length; i++) {
         for (let j=0; j<NB_VOICES_POLYPHONY; j++) {
-            var osc = new Tone.Synth({
+
+            let osc = new Tone.Synth({
                 oscillator: {
                     type: params_list[i]["waveform"]
                 },
@@ -264,21 +263,24 @@ function load_synth_elements() {
                     sustain: amp_envelope_param["sustain"],
                     release: amp_envelope_param["release"],
                 },
-            })
+            }).connect(lpf)
+
             //Connect LFO to OSCs for pitch modulation
-            let osc_lfo_scale = new Tone.Scale(0, 0)
+            let osc_lfo_scale = new Tone.Scale({
+                min: 0,
+                max: 0
+            }).connect(osc.frequency)
             lfo.connect(osc_lfo_scale)
-            osc_lfo_scale.connect(osc.frequency)
 
             //Create but don't connect LFO to OSC2 for PWM yet
-            if (i == 1) {
-                let pwm_scale = new Tone.Scale(osc2_param["pwm"], osc2_param["pwm"])
+            if (i == 1) { //Only for OSC2
+                let pwm_scale = new Tone.Scale({
+                    min: osc2_param["pwm"],
+                    max: osc2_param["pwm"]
+                })
                 lfo.connect(pwm_scale)
                 osc2_pwm_scales.push(pwm_scale)
             }
-
-            //Connect OSC to the LPF
-            osc.connect(lpf);
 
             //Push the newly created objects into their respective lists
             osc_lfo_scales_list[i].push(osc_lfo_scale)
@@ -288,7 +290,15 @@ function load_synth_elements() {
 }
 
 
-//-----VIEW-----
+
+
+
+
+
+
+// -----------------------------------------------
+// -------------------- VIEW ---------------------
+// -----------------------------------------------
 
 let timeoutIds = []
 //CLear all the timers to avoid bugs
@@ -297,17 +307,23 @@ function stop_all_timers() {
     timeoutIds = []
 }
 
+//Change mode from synth to drum machine or vice versa
 function switch_mode(){
-    if (mode == 0){
-        synth_section()
-        toggle_all_highlight_notes()
+    MODE = 1 - MODE
+
+    let mode_button = document.getElementById("mode_button")
+    if (MODE == 1){
+        create_synth_play_section()
+        display_all_highlight_notes()
+        mode_button.src = "assets/drum.svg"
     }else{
-        drum_machine_section()
+        create_drum_machine_play_section()
+        mode_button.src = "assets/keyboard.svg"
     }
     toggle_edit_mode(-1)
-    mode = 1 - mode
 }
 
+//Turn on one sample led
 function one_led_on(led, keep_on=false) {
     led.classList.add("led-on");
     if (!keep_on) {
@@ -323,25 +339,29 @@ function one_led_on(led, keep_on=false) {
     }
 }
 
+//Turn off all step leds
 function all_step_led_off() {
     let leds = document.querySelectorAll(".step-led")
     leds.forEach(led => led.classList.remove("step-led-on"))
 }
 
+//Turn off all sample leds
 function all_sample_led_off() {
     let leds = document.querySelectorAll(".led")
     leds.forEach(led => led.classList.remove("led-on"))
 }
 
+//Render step leds depending on the counter value
 function render_step_leds() {
     let leds = document.querySelectorAll(".step-led")
     all_step_led_off()
     leds[counter].classList.add("step-led-on")
 }
 
-function render_leds_edit(edit_sample_index) {
+//Render sample leds depending on the sample index
+function render_leds_edit(sample_index) {
     all_sample_led_off()
-    let steps_on = sample_seqs[edit_sample_index]
+    let steps_on = sample_seqs[sample_index]
     let keys = document.querySelectorAll(".key")
     keys.forEach((key, index) => {
         if (steps_on[index] == 1){
@@ -351,33 +371,32 @@ function render_leds_edit(edit_sample_index) {
     })
 }
 
-
-function disable_all_select_buttons() {
+//Render the select buttons depending on the EDIT value
+function render_select_buttons() {
+    //Turn off all select buttons
     document.querySelectorAll(".select-button").forEach(button => button.style.backgroundColor = "")
+    if (EDIT !== -1) {
+        //Turn on only the correct select button
+        document.querySelectorAll(".select-button")[EDIT].style.backgroundColor = "#ff6a00" 
+    }
 }
 
-
+//Change angle of knobs when rotated
 function display_rotate_knob(knob, rotation_angle) {
     knob.style.transform = `rotate(${rotation_angle}deg)`;
 }
 
-
-function get_knob_rotation(knob){
-    var st = window.getComputedStyle(knob, null);
-    var tm = st.getPropertyValue("transform") ||
-             "none";
-    if (tm != "none") {
-      var values = tm.split('(')[1].split(')')[0].split(',');
-      return Math.round(Math.atan2(values[1],values[0]) * (180/Math.PI));
-    }
-    return 0;
+//Change the screen display
+function change_screen_display(new_display) {
+    let screen = document.getElementById("screen")
+    screen.textContent = `${new_display}`
 }
 
-
-function drum_machine_section() {
+//Clean play section except for the step leds
+function clean_play_section() {
     var p = document.querySelector(".play-section");
 
-    //Remove all previous sections
+    //Remove all previous elements
     while (p.firstChild) {
         p.firstChild.remove(); 
     }
@@ -387,55 +406,62 @@ function drum_machine_section() {
     leds.classList.add("step-leds")
     p.appendChild(leds)
 
-    //Add the keyboard section
-    let k = document.createElement("div")
-    k.classList.add("keyboard")
-    p.appendChild(k)
-
-    //Add the selectors section
-    let s = document.createElement("div")
-    s.classList.add("selectors")
-    p.appendChild(s)
-
-    //Add the upload buttons section
-    let u = document.createElement("div")
-    u.classList.add("upload")
-    p.appendChild(u)
-
-    //Create keys, selectors and upload buttons
-    let e
-    let l
-    let step_led
     for(let i=0; i<NB_STEPS; i++){
-        e = document.createElement("div")
-        e.classList.add("key")
-        l = document.createElement("div")
-        l.classList.add("led")
-        e.appendChild(l)
-        k.appendChild(e)
-        //Create selectors
-        e = document.createElement("img")
-        e.classList.add("select-button")
-        e.src = "assets/edit.svg"
-        e.draggable = false
-        s.appendChild(e)
-        //Create upload buttons
-        e = document.createElement("img")
-        e.classList.add("upload-button")
-        e.id = "upload_button_mask_"+i.toString()
-        e.src = "assets/upload.svg"
-        e.draggable = false
-        let b = document.createElement("input")
-        b.style.display = "none"
-        b.id = "upload_button_"+i.toString()
-        b.type = "file"
-        b.accept = "audio/*"
-        u.appendChild(e)
-        u.appendChild(b)
         //Create step leds
-        step_led = document.createElement("div")
+        let step_led = document.createElement("div")
         step_led.classList.add("step-led")
         leds.appendChild(step_led)
+    }
+}
+
+//Create the drum machine play section
+function create_drum_machine_play_section() {
+    clean_play_section()
+    var p = document.querySelector(".play-section");
+
+    //Add the keyboard section
+    let keyboard = document.createElement("div")
+    keyboard.classList.add("keyboard")
+    p.appendChild(keyboard)
+
+    //Add the selectors section
+    let selectors = document.createElement("div")
+    selectors.classList.add("selectors")
+    p.appendChild(selectors)
+
+    //Add the upload buttons section
+    let uploads = document.createElement("div")
+    uploads.classList.add("upload")
+    p.appendChild(uploads)
+
+    //Create keys, selectors and upload buttons
+    for(let i=0; i<NB_STEPS; i++){
+        //Create keys and leds
+        let key = document.createElement("div")
+        key.classList.add("key")
+        let led = document.createElement("div")
+        led.classList.add("led")
+        key.appendChild(led)
+        keyboard.appendChild(key)
+        //Create selectors
+        let select_btn = document.createElement("img")
+        select_btn.classList.add("select-button")
+        select_btn.src = "assets/edit.svg"
+        select_btn.draggable = false
+        selectors.appendChild(select_btn)
+        //Create upload buttons
+        let upload_btn = document.createElement("img")
+        upload_btn.classList.add("upload-button")
+        upload_btn.id = "upload_button_mask_"+i.toString()
+        upload_btn.src = "assets/upload.svg"
+        upload_btn.draggable = false
+        let upload_input = document.createElement("input")
+        upload_input.style.display = "none"
+        upload_input.id = "upload_button_"+i.toString()
+        upload_input.type = "file"
+        upload_input.accept = "audio/*"
+        uploads.appendChild(upload_btn)
+        uploads.appendChild(upload_input)
 
     }
 
@@ -443,57 +469,42 @@ function drum_machine_section() {
     load_drum_machine_play_section()
 }
 
-function synth_section() {
+//Create the synth play section
+function create_synth_play_section() {
+    clean_play_section()
     var p = document.querySelector(".play-section");
 
-    //Remove all previous sections
-    while (p.firstChild) {
-        p.firstChild.remove(); 
-    }
-
-    //Add the step leds section
-    let leds = document.createElement("div")
-    leds.classList.add("step-leds")
-    p.appendChild(leds)
-
     //Add the keyboard section
-    let k = document.createElement("div")
-    k.classList.add("keyboard")
-    k.style.height = "90%"
-    p.appendChild(k)
+    let keyboard = document.createElement("div")
+    keyboard.classList.add("keyboard")
+    keyboard.style.height = "90%"
+    p.appendChild(keyboard)
 
-    let step_led
     for(let i=0; i<NB_STEPS; i++){
-        //Create step leds
-        step_led = document.createElement("div")
-        step_led.classList.add("step-led")
-        leds.appendChild(step_led)
-
         //Create columns of the grid (steps)
-        let e = document.createElement("div")
-        e.classList.add("step")
+        let step = document.createElement("div")
+        step.classList.add("step")
 
         //Add the keys for each step
-        let n
         for(let i=0; i<12; i++){
-            n = document.createElement("div")
-            n.classList.add("note");
+            let note = document.createElement("div")
+            note.classList.add("note");
             //Black notes
             if (i == 1 || i == 3 || i == 6 || i == 8 || i == 10){
-                n.classList.add("black-note");
+                note.classList.add("black-note");
             }
-            e.appendChild(n)
+            step.appendChild(note)
         }
-        document.querySelector(".keyboard").appendChild(e)
+        keyboard.appendChild(step)
     }
 
     //Finally load the elements of the synth
     load_synth_play_section()
 }
 
-
-function synth_controls_section() {
-    var b = document.querySelector(".buttons");
+//Create the synth knobs section
+function create_synth_knobs_section() {
+    var b = document.querySelector(".knobs-section");
 
     //Remove all previous sections
     while (b.firstChild) {
@@ -502,13 +513,18 @@ function synth_controls_section() {
 
     //Left section (which contains main and modulation section)
     let left = document.createElement("div")
-    left.classList.add("left-buttons")
+    left.classList.add("left-knobs")
+    b.appendChild(left)
+    
+    //Right section (which contains envelopes and upload/download section)
+    let right = document.createElement("div")
+    right.classList.add("right-knobs")
+    b.appendChild(right)
 
-
-    //Main section (osc, mixer, lfo, lpf)
+    //Main section (osc1, osc2, lfo, mixer, lpf)
     let main = document.createElement("div")
     main.classList.add("main-section")
-
+    left.appendChild(main)
 
     //Oscillators sections (osc1, osc2 and lfo)
     let oscillators = ["osc_1", "osc_2", "lfo"]
@@ -529,7 +545,7 @@ function synth_controls_section() {
         waveform_btn.id = osc_name.replace(/_/g, '')+"_waveform_selector"
         waveform_btn.draggable = false
         waveform_btn.classList.add("rotate-button")
-        waveform_btn.classList.add("margin-rotate-btn")
+        waveform_btn.style.marginBottom = "12px"
         waveform_btn.src = "assets/sawtooth-wave.svg"
         osc.appendChild(waveform_btn)
     
@@ -574,11 +590,10 @@ function synth_controls_section() {
         osc_vol_knob.id = osc_name.replace(/_/g, '')+"_vol_knob"
         osc_vol_knob.draggable = false
         osc_vol_knob.classList.add("mini-rotate-button")
-        osc_vol_knob.classList.add("margin-mini-rotate-btn")
+        osc_vol_knob.style.marginBottom = "22px"
         osc_vol_knob.src = "assets/knob.svg"
         mixer.appendChild(osc_vol_knob)
     })
-
     main.append(mixer)
 
     //LPF section
@@ -589,35 +604,26 @@ function synth_controls_section() {
     header_lpf.textContent = "LPF"
     lpf.appendChild(header_lpf)
 
-    let cutoff_text_lpf = document.createElement("div")
-    cutoff_text_lpf.classList.add("text-button")
-    cutoff_text_lpf.textContent = "CUTOFF"
-    lpf.appendChild(cutoff_text_lpf)
+    let texts_lpf = ["cutoff", "resonance"]
+    texts_lpf.forEach(text => {
+        let text_knob = document.createElement("div")
+        text_knob.classList.add("text-button")
+        text_knob.textContent = text.toUpperCase()
+        lpf.appendChild(text_knob)
 
-    let cutoff_btn_lpf = document.createElement("img")
-    cutoff_btn_lpf.id = "lpf_cutoff_knob"
-    cutoff_btn_lpf.draggable = false
-    cutoff_btn_lpf.classList.add("rotate-button")
-    cutoff_btn_lpf.classList.add("margin-rotate-btn")
-    cutoff_btn_lpf.src = "assets/knob.svg"
-    lpf.appendChild(cutoff_btn_lpf)
-
-    let res_text_lpf = document.createElement("div")
-    res_text_lpf.classList.add("text-button")
-    res_text_lpf.textContent = "RESONANCE"
-    lpf.appendChild(res_text_lpf)
-
-    let res_btn_lpf = document.createElement("img")
-    res_btn_lpf.id = "lpf_resonance_knob"
-    res_btn_lpf.draggable = false
-    res_btn_lpf.classList.add("mini-rotate-button")
-    res_btn_lpf.src = "assets/knob.svg"
-    lpf.appendChild(res_btn_lpf)
-
+        let knob = document.createElement("img")
+        knob.id = "lpf_"+text+"_knob"
+        knob.draggable = false
+        if (text == "cutoff") {
+            knob.classList.add("rotate-button")
+            knob.style.marginBottom = "12px"
+        } else {
+            knob.classList.add("mini-rotate-button")
+        }
+        knob.src = "assets/knob.svg"
+        lpf.appendChild(knob)
+    })
     main.append(lpf)
-
-
-    left.appendChild(main)
 
 
     //Modulation section
@@ -655,10 +661,7 @@ function synth_controls_section() {
     left.appendChild(modulation)
 
 
-    //Right section (envelopes)
-    let right = document.createElement("div")
-    right.classList.add("right-buttons")
-
+    //Envelopes
     let envelopes = ["filter", "amplifier"]
     envelopes.forEach(envelope => {
         let env = document.createElement("div")
@@ -726,21 +729,18 @@ function synth_controls_section() {
 
     right.appendChild(upload_download)
 
-    b.appendChild(left)
-    b.appendChild(right)
-
     //We should update the angle of each knob BEFORE actually connecting them to the parameters
     update_knobs_display()
 }
 
-
+//Function to call to update the display of knobs depending on the actual parameters
 function update_knobs_display() {
     let knob_list = document.querySelectorAll('.rotate-button, .mini-rotate-button')
 
     knob_list.forEach(knob => {
 
         //BPM
-        if (knob.id == "tempo_button") {
+        if (knob.id == "tempo_knob") {
             var param = BPM
             var interpol_method = inverse_linear_interpolation
             var bound_param = "bpm"
@@ -847,9 +847,8 @@ function update_knobs_display() {
     })
 }
 
-
-
-function toggle_all_highlight_notes(){
+//Display synth highlighted notes
+function display_all_highlight_notes(){
     const notes = document.querySelectorAll(".note")
     notes.forEach((note, index) => {
         let true_idx = NB_STEPS*12*OCTAVE + index
@@ -863,100 +862,81 @@ function toggle_all_highlight_notes(){
     });
 }
 
-
+//Apply colors to octave buttons depending on the current octave
 function update_octave_buttons(){
-    let octave_down = document.getElementById('octave_down')
-    let octave_up = document.getElementById('octave_up')
-
-    if(OCTAVE == 0) {
-        octave_down.style.backgroundColor = "#d40000"
-        octave_up.style.backgroundColor = ""
-    }if(OCTAVE == 1) {
-        octave_down.style.backgroundColor = "#d47600"
-        octave_up.style.backgroundColor = ""
-    }if(OCTAVE == 2) {
-        octave_down.style.backgroundColor = "#e9e302"
-        octave_up.style.backgroundColor = ""
-    }if(OCTAVE == 3) {
-        octave_down.style.backgroundColor = ""
-        octave_up.style.backgroundColor = ""
-    }if(OCTAVE == 4) {
-        octave_down.style.backgroundColor = ""
-        octave_up.style.backgroundColor = "#e9e302"
-    }if(OCTAVE == 5) {
-        octave_down.style.backgroundColor = ""
-        octave_up.style.backgroundColor = "#d47600"
-    }if(OCTAVE == 6) {
-        octave_down.style.backgroundColor = ""
-        octave_up.style.backgroundColor = "#d40000"
+    let octave_colors = {
+        0: ["#d40000", ""],
+        1: ["#d47600", ""],
+        2: ["#e9e302", ""],
+        3: ["", ""],
+        4: ["", "#e9e302"],
+        5: ["", "#d47600"],
+        6: ["", "#d40000"]
     }
+    document.getElementById('octave_down').style.backgroundColor = octave_colors[OCTAVE][0]
+    document.getElementById('octave_up').style.backgroundColor = octave_colors[OCTAVE][1]
 }
 
-
+//Change appearance of the play button depending on the play state
 function update_play_button(){
     let play_button = document.getElementById("play_button")
-    if (play == 0){
+    if (PLAY == 0){ //Not playing
         play_button.style.backgroundColor = ""
         play_button.src = "assets/play.svg"
-    } else {
+    } else { //Playing
         play_button.style.backgroundColor = "#d47600"
         play_button.src = "assets/pause.svg"
     }
 }
 
-function update_mode_button(){
-    let mode_button = document.getElementById("mode_button")
-    if (mode == 0){
-        mode_button.src = "assets/keyboard.svg"
-    } else {
-        mode_button.src = "assets/drum.svg"
-    }
-}
-
+//Change appearance of the waveforms selectors depending on the selected waveform
 function update_osc_waveform_button(osc) {
     if (osc == 1) {
         var waveform_btn = document.getElementById("osc1_waveform_selector")
         var new_waveform = osc1_param["waveform"]
-    }
-    if (osc == 2) {
+    } else if (osc == 2) {
         var waveform_btn = document.getElementById("osc2_waveform_selector")
         var new_waveform = osc2_param["waveform"]
-    }
-    //LFO
-    if (osc == 3) {
+    } else if (osc == 3) { //LFO
         var waveform_btn = document.getElementById("lfo_waveform_selector")
         var new_waveform = lfo_param["waveform"]
     }
-
     waveform_btn.src = "assets/"+new_waveform+"-wave.svg"
 }
 
 
-//-----CONTROLLER-----
+
+
+
+
+
+
+// -----------------------------------------------
+// ----------------- CONTROLLER ------------------
+// -----------------------------------------------
 let intervalId = 0
+let counter = 0
+let last_step_time = 0
 
-
-function linear_interpolation(x, y1, y2, x1=MIN_ROTATION, x2=MAX_ROTATION) {
+//4 functions to do math interpolation and their inverses
+function linear_interpolation(x, y1, y2, x1=SETTING_BOUNDS["knobs_rotation"][0], x2=SETTING_BOUNDS["knobs_rotation"][1]) {
     return y1 + (x - x1) * (y2 - y1) / (x2 - x1);
 }
-
-function inverse_linear_interpolation(y, y1, y2, x1=MIN_ROTATION, x2=MAX_ROTATION) {
+function inverse_linear_interpolation(y, y1, y2, x1=SETTING_BOUNDS["knobs_rotation"][0], x2=SETTING_BOUNDS["knobs_rotation"][1]) {
     return x1 + ((x2 - x1) / (y2 - y1)) * (y - y1);
 }
-
-function exp_interpolation(x, y1, y2, x1=MIN_ROTATION, x2=MAX_ROTATION, k=2) {
+function exp_interpolation(x, y1, y2, x1=SETTING_BOUNDS["knobs_rotation"][0], x2=SETTING_BOUNDS["knobs_rotation"][1], k=2) {
     let t = (x - x1) / (x2 - x1);
     return y1 + (y2 - y1) * Math.pow(t, k);
 }
-
-function inverse_exp_interpolation(y, y1, y2, x1=MIN_ROTATION, x2=MAX_ROTATION, k=2) {
+function inverse_exp_interpolation(y, y1, y2, x1=SETTING_BOUNDS["knobs_rotation"][0], x2=SETTING_BOUNDS["knobs_rotation"][1], k=2) {
     let t = (y - y1) / (y2 - y1);
     return x1 + (x2 - x1) * Math.pow(t, 1/k);
 }
 
-
+//Make the buttons rotate
 function knob_rotation(knob) {
-    //let currentRotation = 0; //Track the current rotation angle
+    //Track the current rotation angle
     let currentRotation = get_knob_rotation(knob)
 
     //Listen for the wheel event to rotate the knob
@@ -965,16 +945,16 @@ function knob_rotation(knob) {
         e.preventDefault()
     
         //Determine the scroll direction (wheel delta)
-        const delta = e.deltaY; //Positive for scrolling down, negative for scrolling up
+        const delta = e.deltaY;
     
         //Adjust rotation based on wheel movement
-        let newRotation = currentRotation + (delta / 5) //Adjust speed here by changing divisor
+        let newRotation = currentRotation + (delta / 5)
     
         //Clamp the rotation to the bounds
-        if (newRotation < MIN_ROTATION) {
-            newRotation = MIN_ROTATION
-        } else if (newRotation > MAX_ROTATION) {
-            newRotation = MAX_ROTATION
+        if (newRotation < SETTING_BOUNDS["knobs_rotation"][0]) {
+            newRotation = SETTING_BOUNDS["knobs_rotation"][0]
+        } else if (newRotation > SETTING_BOUNDS["knobs_rotation"][1]) {
+            newRotation = SETTING_BOUNDS["knobs_rotation"][1]
         }
     
         //Update the current rotation for future calculations
@@ -1000,8 +980,7 @@ function knob_rotation(knob) {
             )
         }
 
-        //The following blocks connect the buttons to their respective functions
-        if (knob.id.includes("tempo")) {
+        if (knob.id == "tempo_knob") {
             change_bpm(currentRotation)
         }
 
@@ -1044,10 +1023,18 @@ function knob_rotation(knob) {
     });
 }
 
+//Get the angle of a knob
+function get_knob_rotation(knob){
+    var st = window.getComputedStyle(knob, null);
+    var tm = st.getPropertyValue("transform") || "none";
+    if (tm != "none") {
+      var values = tm.split('(')[1].split(')')[0].split(',');
+      return Math.round(Math.atan2(values[1],values[0]) * (180/Math.PI));
+    }
+    return 0;
+}
 
-
-
-
+//Load the drum machine play section
 function load_drum_machine_play_section() {
     //Keys click
     const keys = document.querySelectorAll(".key")
@@ -1055,16 +1042,17 @@ function load_drum_machine_play_section() {
         key.addEventListener('click', function() {
 
             //Play mode
-            if (edit_mode == -1) {
-                key_clicked(key, index)
-            }
-
-            //Edit mode
-            else {
-                edit_sample_seq(index, edit_mode)
+            if (EDIT == -1) { //Play mode
+                one_led_on(key.children[0])
+                if(MODE == 0){
+                    play_sample(index)
+                }
+            } else { //Edit mode
+                edit_sample_seq(index, EDIT)
                 //Play the sample only if it has been activated (not deactivated)
-                if (sample_seqs[edit_mode][index] == 1) {
-                    play_sample(edit_mode)
+                // and the sequence is not playing
+                if (sample_seqs[EDIT][index] == 1 && PLAY == 0) {
+                    play_sample(EDIT)
                 }
             }
             
@@ -1097,22 +1085,30 @@ function load_drum_machine_play_section() {
     }
 }
 
+//Load the synth play section
 function load_synth_play_section() {
     //Notes click
     const notes = document.querySelectorAll(".note")
     notes.forEach((note, index) => {
         note.addEventListener('click', function() {
-
-            toggle_note_synth(index)
-
+            let true_idx = NB_STEPS*12*OCTAVE + index
+            
+            if (notes_seqs[true_idx] == 0) {
+                notes_seqs[true_idx] = 1
+                play_note(true_idx)
+            } else {
+                notes_seqs[true_idx] = 0
+            }
+        
+            display_all_highlight_notes()
         })
     })
 }
 
+//Load knobs section
+function load_synth_knobs_section() {
 
-function load_synth_button_section() {
-
-    //Waveform buttons
+    //Waveform selectors
     let waveform_buttons = []
     waveform_buttons.push(document.getElementById("osc1_waveform_selector"))
     waveform_buttons.push(document.getElementById("osc2_waveform_selector"))
@@ -1124,48 +1120,10 @@ function load_synth_button_section() {
         })
     }
 
-    //LFO rate
-    let lfo_rate_knob = document.getElementById("lfo_rate_knob")
-    knob_rotation(lfo_rate_knob)
-
-    //OSC1 pitch
-    let osc1_pitch = document.getElementById("osc1_pitch_knob")
-    knob_rotation(osc1_pitch)
-
-    //OSC2 duty cucle
-    let osc2_pulse_width = document.getElementById("osc2_pulse_width_knob")
-    knob_rotation(osc2_pulse_width)
-
-    //Envelopes knobs
-    let settings_env = ["attack", "decay", "sustain", "release"]
-    let envelopes = ["filter", "amplifier"]
-
-    envelopes.forEach(env => {
-        settings_env.forEach(setting => {
-            let element = document.getElementById(setting+"_"+env+"_env_knob")
-            knob_rotation(element)
-        })
-    })
-
-    //Mixer knobs
-    let osc_names = ["osc1", "osc2"]
-    osc_names.forEach(osc_name => {
-        let element = document.getElementById(osc_name+"_vol_knob")
-        knob_rotation(element)
-    })
-
-    //LPF knobs
-    let settings_lpf = ["cutoff", "resonance"]
-    settings_lpf.forEach(setting => {
-        let element = document.getElementById("lpf_"+setting+"_knob")
-        knob_rotation(element)
-    })
-
-    //Modulation knobs
-    let mod_knobs_ids = ["lpf_cutoff_mod_knob", "lpf_envelope_mod_knob", "osc_freq_mod_knob", "pwm_mod_knob"]
-    mod_knobs_ids.forEach(knob_id => {
-        let element = document.getElementById(knob_id)
-        knob_rotation(element)
+    //All knobs except tempo knob and waveform selectors
+    let knob_list = document.querySelectorAll('#lpf_cutoff_knob, .mini-rotate-button')
+    knob_list.forEach(knob => {
+        knob_rotation(knob)
     })
 
     //Upload/download buttons
@@ -1212,7 +1170,6 @@ function change_bpm(value, angle=true) {
             SETTING_BOUNDS["bpm"][1]
         )
     }
-    
     BPM = Math.round(new_value)
     change_screen_display(BPM)
 }
@@ -1420,9 +1377,9 @@ function change_lpf_settings(setting, value, interpol_method=exp_interpolation, 
     if (setting == "cutoff") {
         lpf.frequency.value = new_value
         lpf_lfo.min = new_value
-        lpf_lfo.max = lpf_param["cutoff"]+lpf_param["mod_amt"] //We shift the max modulation value
+        lpf_lfo.max = new_value+lpf_param["mod_amt"] //We shift the max modulation value
         lpf_env_scale.min = new_value
-        lpf_env_scale.max = lpf_param["cutoff"]+lpf_param["env_amt"] //Same
+        lpf_env_scale.max = new_value+lpf_param["env_amt"] //Same
     } else if (setting == "resonance") {
         lpf.Q.value = new_value
     } else if (setting == "mod_amt") {
@@ -1432,24 +1389,24 @@ function change_lpf_settings(setting, value, interpol_method=exp_interpolation, 
     }
 }
 
-
-function change_screen_display(new_display) {
-    let screen = document.getElementById("screen")
-    screen.textContent = `${new_display}`
-}
-
-
+//Start the sequencer
 function play_seq() {
+    let sample_leds = document.querySelectorAll(".led")
+    let cur_BPM = BPM
     intervalId = setInterval(function incr() {
-
+        //If the BPM changes during playing, the interval is restarted
+        if (cur_BPM != BPM) {
+            clearInterval(intervalId)
+            play_seq()
+        }
+        last_step_time = Date.now()
         render_step_leds()
 
         //Play the drum machine samples of the current step and render the leds
-        let sample_leds = document.querySelectorAll(".led")
         for(let i=0; i<sample_seqs.length; i++){
             if (sample_seqs[i][counter] == 1){
                 play_sample(i)
-                if (edit_mode == -1 && mode == 0) {
+                if (EDIT == -1 && MODE == 0) {
                     one_led_on(sample_leds[i])
                 }
             }
@@ -1462,66 +1419,45 @@ function play_seq() {
     }, (60/BPM)/4*1000)
 }
 
+//Stop the sequencer (clear leds and timers)
 function stop_seq() {
     clearInterval(intervalId)
     stop_all_timers()
     all_step_led_off()
-    if (edit_mode == -1){
+    if (EDIT == -1){
         all_sample_led_off()
     }
     counter = 0
 }
 
+//Edit the sequence of samples
 function edit_sample_seq(key_index, sample_index) {
     sample_seqs[sample_index][key_index] = 1 - sample_seqs[sample_index][key_index]
     render_leds_edit(sample_index)
 }
 
+//Switch between play mode and edit mode
 function toggle_edit_mode(index) {
-    disable_all_select_buttons()
-    if(edit_mode == index || index == -1){
-        edit_mode = -1
-        all_sample_led_off()
+    all_sample_led_off()
+    if(EDIT == index || index == -1){
+        EDIT = -1
     }else{
-        edit_mode = index
-        all_sample_led_off()
-        render_leds_edit(edit_mode)
-        document.querySelectorAll(".select-button")[index].style.backgroundColor = "#ff6a00"
+        EDIT = index
+        render_leds_edit(EDIT)
     }
+    render_select_buttons()
 }
 
-function toggle_note_synth(index){
-    let true_idx = NB_STEPS*12*OCTAVE + index
-    
-    if (notes_seqs[true_idx] == 0) {
-        notes_seqs[true_idx] = 1
-        play_note(true_idx)
-    } else {
-        notes_seqs[true_idx] = 0
-    }
-
-    toggle_all_highlight_notes()
-
-}
-
-
-function key_clicked(key, key_index) {
-    one_led_on(key.children[0])
-    if(mode == 0){
-        play_sample(key_index)
-    }
-}
-
-
+//Change octave
 function change_octave(nb){
     if(OCTAVE+nb >= 0 && OCTAVE+nb <= 6){
         OCTAVE += nb
         update_octave_buttons()
-        toggle_all_highlight_notes()
+        display_all_highlight_notes()
     }
 }
 
-
+//Play a sample in the buffer
 function play_sample(sample_index){
     if (samples[sample_index] !== null) {
         const source = audio_context.createBufferSource()
@@ -1530,7 +1466,6 @@ function play_sample(sample_index){
         source.start(0)
     }
 }
-
 
 //Function to be called when ONLY ONE NOTE must be played
 function play_note(key_index, osc_idx=0) {
@@ -1562,8 +1497,6 @@ function play_note(key_index, osc_idx=0) {
     osc2.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
 }
 
-
-
 //Function to be called when MULTIPLE notes must be played
 function play_step_notes(step_nb){
 
@@ -1577,8 +1510,8 @@ function play_step_notes(step_nb){
 
             //If this note is activated
             // and the nb of triggered notes is < NB_VOICES_POLYPHONY,
-            // add this index to the list of triggered notes
             if (notes_seqs[true_idx] == 1 && triggered_notes_idx.length < NB_VOICES_POLYPHONY) {
+                // add this index to the list of triggered notes
                 triggered_notes_idx.push(true_idx)
             }
         }
@@ -1591,8 +1524,7 @@ function play_step_notes(step_nb){
     }
 }
 
-
-
+//Convert a note index to a note like C4 or D6
 function convert_to_note_and_octave(key_index){
     let chroma_scale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
     let note = chroma_scale[key_index % 12]
@@ -1600,11 +1532,12 @@ function convert_to_note_and_octave(key_index){
     return note+octave.toString()
 }
 
+//dB conversion
 function convert_to_db(value) {
     return 20*Math.log10(value+Number.MIN_VALUE)
 }
 
-
+//Load an audio file and return a buffer containing the audio data
 async function load_audio_file(file) {
     try {
         //If the path to the file is provided
@@ -1630,7 +1563,7 @@ async function load_audio_file(file) {
     }
 }
 
-
+//Export synth and drum machine config in a JSON file
 function export_data() {
     const data = {
         bpm: BPM,
@@ -1652,7 +1585,7 @@ function export_data() {
     link.click();
 }
 
-
+//Import synth and drum machine from a JSON file
 function import_data(jsonData) {
     try {
         BPM = jsonData.bpm
@@ -1686,16 +1619,16 @@ function import_data(jsonData) {
         }
 
         //Update knobs display and reload them
-        synth_controls_section()
-        load_synth_button_section()
+        create_synth_knobs_section()
+        load_synth_knobs_section()
 
         //Update play section rendering
         toggle_edit_mode(-1)
-        if (mode == 0) {
-            drum_machine_section()
-        } else if (mode == 1) {
-            synth_section()
-            toggle_all_highlight_notes()
+        if (MODE == 0) {
+            create_drum_machine_play_section()
+        } else if (MODE == 1) {
+            create_synth_play_section()
+            display_all_highlight_notes()
         }
 
     } catch(error) {
