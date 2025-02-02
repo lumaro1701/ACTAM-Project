@@ -11,6 +11,7 @@ document.addEventListener('click', function() {
         create_synth_play_section()
 
         //Create synth knobs and load (connect) them
+        load_synth_elements()
         create_synth_knobs_section()
         load_synth_knobs_section()
 
@@ -48,8 +49,6 @@ document.addEventListener('click', function() {
             PLAY = 1 - PLAY
             update_play_button()
         })
-
-        load_synth_elements()
     }
 
 });
@@ -139,31 +138,32 @@ const SETTING_BOUNDS = {
     decay: [0.0, 2.0],
     sustain: [0.0, 1.0],
     release: [0.0, 5.0],
-    osc_volume: [0.0, 1.0],
-    osc_mod_amt: [0, 500],
+    osc1_vol: [0.0, 1.0],
+    osc2_vol: [0.0, 1.0],
+    osc1_freqMod: [0, 500], //Same for OSC2
     osc1_pitch: [-1200, 1200],
-    osc2_pulse_width: [-1, 1],
-    osc2_pwm: [0, 0.5],
+    osc2_pw: [-1, 1],
+    osc2_pwMod: [0, 0.5],
     lfo_rate: [0.1, 20.0],
-    lpf_cutoff: [1, 20000],
+    lpf_cutoff: [1, 18000],
     lpf_resonance: [0, 15],
-    lpf_mod_amt: [0, 15000],
-    lpf_env_amt: [0, 15000],
+    lpf_lfoMod: [0, 15000],
+    lpf_envMod: [0, 15000],
 }
 
 let osc1_param = {
     waveform: "sawtooth",
-    volume: 1,
-    mod_amt: 0,
+    vol: 1,
+    freqMod: 0,
     pitch: 0,
 };
 
 let osc2_param = {
     waveform: "sawtooth",
-    volume: 1,
-    mod_amt: osc1_param["mod_amt"],
-    pulse_width: 0,
-    pwm: 0,
+    vol: 1,
+    freqMod: osc1_param["freqMod"],
+    pw: 0,
+    pwMod: 0,
 };
 
 let lfo_param = {
@@ -176,8 +176,8 @@ let lpf_param = {
     cutoff: 18000,
     rolloff: -24,
     resonance: 0,
-    mod_amt: 0,
-    env_amt: 0,
+    lfoMod: 0,
+    envMod: 0,
 }
 
 let amp_envelope_param = {
@@ -210,7 +210,7 @@ function load_synth_elements() {
     //Create filter envelope and connect it through a Scale object
     window.lpf_env_scale = new Tone.Scale({
         min: lpf_param["cutoff"],
-        max: lpf_param["cutoff"]+lpf_param["env_amt"]
+        max: lpf_param["cutoff"]+lpf_param["envMod"]
     }).connect(lpf.frequency)
 
     window.lpf_envelope = new Tone.Envelope({
@@ -234,7 +234,7 @@ function load_synth_elements() {
     //Connect LFO to LPF for cutoff frequency modulation
     window.lpf_lfo = new Tone.Scale({
         min: lpf_param["cutoff"],
-        max: lpf_param["cutoff"]+lpf_param["mod_amt"]
+        max: lpf_param["cutoff"]+lpf_param["lfoMod"]
     }).connect(lpf.frequency)
     lfo.connect(lpf_lfo)
 
@@ -275,8 +275,8 @@ function load_synth_elements() {
             //Create but don't connect LFO to OSC2 for PWM yet
             if (i == 1) { //Only for OSC2
                 let pwm_scale = new Tone.Scale({
-                    min: osc2_param["pwm"],
-                    max: osc2_param["pwm"]
+                    min: osc2_param["pwMod"],
+                    max: osc2_param["pwMod"]
                 })
                 lfo.connect(pwm_scale)
                 osc2_pwm_scales.push(pwm_scale)
@@ -287,6 +287,20 @@ function load_synth_elements() {
             osc_lists[i].push(osc)
         }
     }
+
+    //Map all the param variables to the concerned element of the synth
+    // so it is easier to access them
+    window.param_variables = {
+        osc1: osc1_param,
+        osc2: osc2_param,
+        osc1_list: oscillators1,
+        osc2_list: oscillators2,
+        lpf: lpf_param,
+        lfo: lfo_param,
+        filter_env: filt_envelope_param,
+        amplifier_env: amp_envelope_param
+    }
+
 }
 
 
@@ -554,7 +568,7 @@ function create_synth_knobs_section() {
         if (osc_name == "osc_1") {
             var second_param_name = "pitch"
         } else if (osc_name == "osc_2") {
-            var second_param_name = "pulse_width"
+            var second_param_name = "pw"
         } else {
             var second_param_name = "rate"
         }
@@ -639,19 +653,20 @@ function create_synth_knobs_section() {
     mod_knobs.classList.add("mod-knobs")
     modulation.appendChild(mod_knobs)
 
-    let params = ["osc_freq", "pwm", "lpf_cutoff", "lpf_envelope"]
-    params.forEach(param => {
+    let params = ["osc1-2_freqMod", "osc2_pwMod", "lpf_lfoMod", "lpf_envMod"]
+    let display_text = ["OSC 1-2 FREQ", "OSC 2 PWM", "LPF CUTOFF", "LPF ENVELOPE"]
+    params.forEach((param, i) => {
         let block = document.createElement("div")
-        block.id = param+"_mod_block"
+        block.id = param+"_block"
         mod_knobs.appendChild(block)
 
         let text = document.createElement("div")
         text.classList.add("text-button")
-        text.textContent = param.replace(/_/g, ' ').toUpperCase()
+        text.textContent = display_text[i]
         block.appendChild(text)
 
         let knob = document.createElement("img")
-        knob.id = param+"_mod_knob"
+        knob.id = param+"_knob"
         knob.draggable = false
         knob.classList.add("mini-rotate-button")
         knob.src = "assets/knob.svg"
@@ -747,83 +762,51 @@ function update_knobs_display() {
         }
 
         //Envelopes
-        if (knob.id.includes("_env_knob")) {
+        if (knob.id.includes("env_knob")) {
             let knob_id_splitted = knob.id.split('_')
             let setting = knob_id_splitted[0]
             let envelope = knob_id_splitted[1]
-            if (envelope == "filter") {
-                var params = filt_envelope_param
-            } else if (envelope == "amplifier") {
-                var params = amp_envelope_param
-            }
-            if (setting == "sustain") {
-                var interpol_method = inverse_linear_interpolation
-            } else {
-                var interpol_method = inverse_exp_interpolation
-            }
-            var param = params[setting]
+            var param = param_variables[envelope+"_env"][setting]
             var bound_param = setting
+            var interpol_method = inverse_exp_interpolation
+            if (setting == "sustain") {
+                interpol_method = inverse_linear_interpolation
+            }
         }
 
         //LFP
-        if (knob.id == "lpf_cutoff_knob" || knob.id == "lpf_resonance_knob") {
+        if (knob.id.includes("lpf_")) {
             let setting = knob.id.split('_')[1]
             var param = lpf_param[setting]
-            var interpol_method = inverse_exp_interpolation
-            var bound_param = "lpf_"+setting
-        } else if (knob.id == "lpf_cutoff_mod_knob") {
-            let setting = "mod_amt"
-            var param = lpf_param[setting]
-            var interpol_method = inverse_exp_interpolation
-            var bound_param = "lpf_"+setting
-        } else if (knob.id == "lpf_envelope_mod_knob") {
-            let setting = "env_amt"
-            var param = lpf_param[setting]
-            var interpol_method = inverse_exp_interpolation
+            interpol_method = inverse_exp_interpolation
             var bound_param = "lpf_"+setting
         }
 
         //Mixer
         if (knob.id.includes("vol_knob")) {
-            var bound_param = "osc_volume"
+            var bound_param = "osc1_vol"
             var interpol_method = inverse_linear_interpolation
-            if (knob.id.split('_')[0] == "osc1") {
-                param = osc1_param["volume"]
-            } else {
-                param = osc2_param["volume"]
-            }
+            let element = knob.id.split('_')[0]
+            var param = param_variables[element]["vol"]
         }
 
         //OSC
         if (knob.id.includes("waveform_selector")) {
             let osc = knob.id.split('_')[0]
-            if (osc == "osc1") {
-                var waveform = osc1_param["waveform"]
-            } else if (osc == "osc2") {
-                var waveform = osc2_param["waveform"]
-            } else {
-                var waveform = lfo_param["waveform"]
-                if (waveform == "square") {
-                    waveform = "pulse"
-                }
+            var waveform = param_variables[osc]["waveform"]
+            if (osc == "lfo" && waveform == "square") {
+                waveform = "pulse"
             }
             knob.src = "assets/"+waveform+"-wave.svg"
-        } else if (knob.id == "osc1_pitch_knob") {
-            var bound_param = "osc1_pitch"
+        } else if (knob.id.includes("osc")) {
+            let element = knob.id.split('_')[0].split('-')[0]
+            let setting = knob.id.split('_')[1]
+            var param = param_variables[element][setting]
+            var bound_param = element+"_"+setting
             var interpol_method = inverse_linear_interpolation
-            var param = osc1_param["pitch"]
-        } else if (knob.id == "osc2_pulse_width_knob") {
-            var bound_param = "osc2_pulse_width"
-            var interpol_method = inverse_linear_interpolation
-            var param = osc2_param["pulse_width"]
-        } else if (knob.id == "osc_freq_mod_knob") {
-            var bound_param = "osc_mod_amt"
-            var interpol_method = inverse_exp_interpolation
-            var param = osc1_param["mod_amt"]
-        } else if (knob.id == "pwm_mod_knob") {
-            var bound_param = "osc2_pwm"
-            var interpol_method = inverse_linear_interpolation
-            var param = osc2_param["pwm"]
+            if (setting == "freqMod") {
+                interpol_method = inverse_exp_interpolation
+            }
         }
 
         //LFO Rate
@@ -832,7 +815,6 @@ function update_knobs_display() {
             var interpol_method = inverse_exp_interpolation
             var param = lfo_param["frequency"]
         }
-
 
         //Apply the rotation with the variables defined above
         if (typeof param !== 'undefined') {
@@ -890,17 +872,10 @@ function update_play_button(){
 }
 
 //Change appearance of the waveforms selectors depending on the selected waveform
-function update_osc_waveform_button(osc) {
-    if (osc == 1) {
-        var waveform_btn = document.getElementById("osc1_waveform_selector")
-        var new_waveform = osc1_param["waveform"]
-    } else if (osc == 2) {
-        var waveform_btn = document.getElementById("osc2_waveform_selector")
-        var new_waveform = osc2_param["waveform"]
-    } else if (osc == 3) { //LFO
-        var waveform_btn = document.getElementById("lfo_waveform_selector")
-        var new_waveform = lfo_param["waveform"]
-    }
+function update_osc_waveform_button(osc_name) {
+    let params = param_variables[osc_name]
+    let waveform_btn = document.getElementById(osc_name+"_waveform_selector")
+    let new_waveform = params["waveform"]
     waveform_btn.src = "assets/"+new_waveform+"-wave.svg"
 }
 
@@ -916,7 +891,6 @@ function update_osc_waveform_button(osc) {
 // -----------------------------------------------
 let intervalId = 0
 let counter = 0
-let last_step_time = 0
 
 //4 functions to do math interpolation and their inverses
 function linear_interpolation(x, y1, y2, x1=SETTING_BOUNDS["knobs_rotation"][0], x2=SETTING_BOUNDS["knobs_rotation"][1]) {
@@ -966,58 +940,33 @@ function knob_rotation(knob) {
         //Update the value of the desired parameter by calling the appropriate function        
         if (knob.id.includes("env_")){
             let knob_id_splitted = knob.id.split('_')
-
+            let env = knob_id_splitted[1]
+            let setting = knob_id_splitted[0]
             if (knob_id_splitted[0] == "sustain") {
                 var interpol_method = linear_interpolation
             } else {
                 var interpol_method = exp_interpolation
             }
-            change_envelope_settings(
-                knob_id_splitted[1], //The envelope considered
-                knob_id_splitted[0], //The setting to update
-                currentRotation, //The angle value that will be interpolated
-                interpol_method
-            )
+            change_envelope_settings(env, setting, currentRotation, interpol_method)
         }
 
         if (knob.id == "tempo_knob") {
             change_bpm(currentRotation)
         }
 
-        if (knob.id.includes("vol_knob")) {
-            let knob_id_splitted = knob.id.split('_')
-            change_osc_vol(knob_id_splitted[0], currentRotation)
+        if (knob.id.includes("osc") && knob.id.includes("knob")) {
+            let osc_name = knob.id.split('_')[0].split('-')[0]
+            let setting = knob.id.split('_')[1]
+            change_osc_settings(osc_name, setting, currentRotation)
         }
 
         if (knob.id.includes("lpf_")) {
-            if (knob.id == "lpf_cutoff_mod_knob") {
-                change_lpf_settings("mod_amt", currentRotation)
-            } else if (knob.id == "lpf_envelope_mod_knob") {
-                change_lpf_settings("env_amt", currentRotation)
-            } else {
-                let knob_id_splitted = knob.id.split('_')
-                change_lpf_settings(knob_id_splitted[1], currentRotation)
-            }
+            let setting = knob.id.split('_')[1]
+            change_lpf_settings(setting, currentRotation)
         }
 
         if(knob.id == "lfo_rate_knob") {
             change_lfo_rate(currentRotation)
-        }
-
-        if (knob.id == "osc_freq_mod_knob") {
-            change_osc_freq_modulation(currentRotation)
-        }
-
-        if (knob.id == "pwm_mod_knob") {
-            change_osc2_pwm(currentRotation)
-        }
-
-        if (knob.id == "osc1_pitch_knob") {
-            change_osc1_pitch(currentRotation)
-        }
-
-        if (knob.id == "osc2_pulse_width_knob") {
-            change_osc2_pulse_width(currentRotation)
         }
 
     });
@@ -1114,11 +1063,12 @@ function load_synth_knobs_section() {
     waveform_buttons.push(document.getElementById("osc2_waveform_selector"))
     waveform_buttons.push(document.getElementById("lfo_waveform_selector"))
 
-    for (let i=0; i<waveform_buttons.length; i++) {
-        waveform_buttons[i].addEventListener('click', function() {
-            change_osc_waveform(i+1)
+    waveform_buttons.forEach(button => {
+        let osc = button.id.split('_')[0]
+        button.addEventListener('click', function() {
+            change_osc_settings(osc, "waveform")
         })
-    }
+    })
 
     //All knobs except tempo knob and waveform selectors
     let knob_list = document.querySelectorAll('#lpf_cutoff_knob, .mini-rotate-button')
@@ -1175,138 +1125,103 @@ function change_bpm(value, angle=true) {
 }
 
 
-function change_osc_waveform(osc) {
-    let waveforms = ["sawtooth", "triangle", "pulse", "sine"]
-    if (osc == 1){
-        let index = waveforms.indexOf(osc1_param["waveform"]);
-        let new_waveform = waveforms[(index+1) % waveforms.length]
-        osc1_param["waveform"] = new_waveform
-        oscillators1.forEach(osc => {
-            osc.oscillator.type = new_waveform
-        })
+function change_osc_settings(osc_name, setting, value=null, angle=true) {
+    let params = param_variables[osc_name]
+    let new_value = value
+    if (osc_name !== "lfo") {
+        var osc_list = param_variables[osc_name+"_list"]
     }
-    if (osc == 2){
-        let index = waveforms.indexOf(osc2_param["waveform"]);
-        let new_waveform = waveforms[(index+1) % waveforms.length]
-        osc2_param["waveform"] = new_waveform
-        for (let i=0; i<oscillators2.length; i++) {
-            oscillators2[i].oscillator.type = new_waveform
-            //Update pulse width and connect/disconnect PWM
+
+    //Waveform
+    if (setting == "waveform") {
+        let waveforms = ["sawtooth", "triangle", "pulse", "sine"]
+        let waveform_index = waveforms.indexOf(params["waveform"])
+        let new_waveform = waveforms[(waveform_index+1) % waveforms.length]
+        params["waveform"] = new_waveform
+        
+        if (osc_name == "osc1" || osc_name == "osc2"){
+            osc_list.forEach((osc, i) => {
+                osc.oscillator.type = new_waveform
+                if (osc_name == "osc2") { //If it is osc2 then update pulse width params
+                    if (new_waveform == "pulse") {
+                        osc.oscillator.width.value = params["pw"]
+                        osc2_pwm_scales[i].connect(osc.oscillator.width)
+                    }
+                }
+
+            })
+        } else if (osc_name == "lfo"){
+            //If new_waveform == "pulse" just change to "square" as Tone.LFO
+            // object doesn't have pulse type of waveform
             if (new_waveform == "pulse") {
-                oscillators2[i].oscillator.width.value = osc2_param["pulse_width"]
-                osc2_pwm_scales[i].connect(oscillators2[i].oscillator.width)
-            } else if (waveforms[index] == "pulse") { //If current waveform is "pulse"
-                osc2_pwm_scales[i].disconnect(oscillators2[i].oscillator.width)
+                lfo.type = "square"
+            } else {
+                lfo.type = new_waveform
             }
         }
+        update_osc_waveform_button(osc_name)
     }
-    //LFO
-    if (osc == 3){
-        let index = waveforms.indexOf(lfo_param["waveform"]);
-        let new_waveform = waveforms[(index+1) % waveforms.length]
-        lfo_param["waveform"] = new_waveform
-        //If new_waveform == "pulse" just change to "square" as Tone.LFO
-        // object doesn't have pulse type of waveform
-        if (new_waveform == "pulse") {
-            lfo.type = "square"
-        } else {
-            lfo.type = new_waveform
+
+    //Volume
+    else if (setting == "vol") {
+        if (angle) {
+            new_value = linear_interpolation(
+                value, 
+                SETTING_BOUNDS["osc1_vol"][0],
+                SETTING_BOUNDS["osc1_vol"][1]
+            )
+        }
+
+        params["vol"] = new_value
+        osc_list.forEach(osc => {
+            osc.volume.value = convert_to_db(new_value)
+        })
+    }
+
+    //Frequency modulation
+    else if (setting == "freqMod") {
+        if (angle) {
+            new_value = exp_interpolation(
+                value, 
+                SETTING_BOUNDS["osc1_freqMod"][0],
+                SETTING_BOUNDS["osc1_freqMod"][1]
+            )
+        }
+
+        osc1_param["freqMod"] = new_value
+        osc2_param["freqMod"] = new_value
+    }
+
+    //Pitch, Pulse Width and PWM
+    else if (setting == "pitch" || setting == "pw" || setting == "pwMod") {
+        if (angle) {
+            new_value = linear_interpolation(
+                value, 
+                SETTING_BOUNDS[osc_name+"_"+setting][0],
+                SETTING_BOUNDS[osc_name+"_"+setting][1]
+            )
+        }
+
+        params[setting] = new_value
+
+        if (setting == "pitch") { //Update OSC1 detune
+            oscillators1.forEach(osc => {
+                osc.detune.value = new_value
+            })
+        } else if (setting == "pw") { //Update PWM scale in case of PW setting change
+            osc2_pwm_scales.forEach(scale => {
+                scale.min = new_value - osc2_param["pwMod"]
+                scale.max = new_value + osc2_param["pwMod"]
+
+            })
+        } else { //Update PWM scale in case of PWM setting change
+            osc2_pwm_scales.forEach(scale => {
+                scale.min = osc2_param["pw"] - new_value
+                scale.max = osc2_param["pw"] + new_value
+            })
         }
     }
-    update_osc_waveform_button(osc)
-}
 
-
-function change_osc_vol(osc_name, value, angle=true) {
-    var new_value = value
-    if (angle) {
-        new_value = linear_interpolation(
-            value, 
-            SETTING_BOUNDS["osc_volume"][0],
-            SETTING_BOUNDS["osc_volume"][1]
-        )
-    }
-
-    if (osc_name == "osc1") {
-        osc1_param["volume"] = new_value
-        oscillators1.forEach(osc => {
-            osc.volume.value = convert_to_db(new_value)
-        })
-    } else if (osc_name == "osc2") {
-        osc2_param["volume"] = new_value
-        oscillators2.forEach(osc => {
-            osc.volume.value = convert_to_db(new_value)
-        })
-    }
-}
-
-
-function change_osc_freq_modulation(value, angle=true) {
-    var new_value = value
-    if (angle) {
-        new_value = exp_interpolation(
-            value, 
-            SETTING_BOUNDS["osc_mod_amt"][0],
-            SETTING_BOUNDS["osc_mod_amt"][1]
-        )
-    }
-
-    osc1_param["mod_amt"] = new_value
-    osc2_param["mod_amt"] = new_value
-}
-
-
-function change_osc1_pitch(value, angle=true) {
-    var new_value = value
-    if (angle) {
-        new_value = linear_interpolation(
-            value, 
-            SETTING_BOUNDS["osc1_pitch"][0],
-            SETTING_BOUNDS["osc1_pitch"][1]
-        )
-    }
-
-    osc1_param["pitch"] = new_value
-    oscillators1.forEach(osc => {
-        osc.detune.value = new_value
-    })
-}
-
-function change_osc2_pulse_width(value, angle=true) {
-    var new_value = value
-    if (angle) {
-        new_value = linear_interpolation(
-            value, 
-            SETTING_BOUNDS["osc2_pulse_width"][0],
-            SETTING_BOUNDS["osc2_pulse_width"][1]
-        )
-    }
-
-    osc2_param["pulse_width"] = new_value
-
-    //Update the scale of the PWM
-    osc2_pwm_scales.forEach(scale => {
-        scale.min = new_value - osc2_param["pwm"]
-        scale.max = new_value + osc2_param["pwm"]
-    })
-
-}
-
-function change_osc2_pwm(value, angle=true) {
-    var new_value = value
-    if (angle) {
-        new_value = linear_interpolation(
-            value, 
-            SETTING_BOUNDS["osc2_pwm"][0],
-            SETTING_BOUNDS["osc2_pwm"][1]
-        )
-    }
-
-    osc2_param["pwm"] = new_value
-    osc2_pwm_scales.forEach(scale => {
-        scale.min = osc2_param["pulse_width"] - new_value
-        scale.max = osc2_param["pulse_width"] + new_value
-    })
 }
 
 
@@ -1377,21 +1292,20 @@ function change_lpf_settings(setting, value, interpol_method=exp_interpolation, 
     if (setting == "cutoff") {
         lpf.frequency.value = new_value
         lpf_lfo.min = new_value
-        lpf_lfo.max = new_value+lpf_param["mod_amt"] //We shift the max modulation value
+        lpf_lfo.max = new_value+lpf_param["lfoMod"] //We shift the max modulation value
         lpf_env_scale.min = new_value
-        lpf_env_scale.max = new_value+lpf_param["env_amt"] //Same
+        lpf_env_scale.max = new_value+lpf_param["envMod"] //Same
     } else if (setting == "resonance") {
         lpf.Q.value = new_value
-    } else if (setting == "mod_amt") {
+    } else if (setting == "lfoMod") {
         lpf_lfo.max = lpf_param["cutoff"]+new_value
-    } else if (setting == "env_amt") {
+    } else if (setting == "envMod") {
         lpf_env_scale.max = lpf_param["cutoff"]+new_value
     }
 }
 
 //Start the sequencer
 function play_seq() {
-    let sample_leds = document.querySelectorAll(".led")
     let cur_BPM = BPM
     intervalId = setInterval(function incr() {
         //If the BPM changes during playing, the interval is restarted
@@ -1399,7 +1313,6 @@ function play_seq() {
             clearInterval(intervalId)
             play_seq()
         }
-        last_step_time = Date.now()
         render_step_leds()
 
         //Play the drum machine samples of the current step and render the leds
@@ -1407,6 +1320,7 @@ function play_seq() {
             if (sample_seqs[i][counter] == 1){
                 play_sample(i)
                 if (EDIT == -1 && MODE == 0) {
+                    let sample_leds = document.querySelectorAll(".led")
                     one_led_on(sample_leds[i])
                 }
             }
@@ -1483,10 +1397,10 @@ function play_note(key_index, osc_idx=0) {
     //Compute the range of the LFO pitch modulation
     let note_freq = Tone.Frequency(note).toFrequency()
 
-    osc1_lfo_scale.min = note_freq - osc1_param["mod_amt"]
-    osc1_lfo_scale.max = note_freq + osc1_param["mod_amt"]
-    osc2_lfo_scale.min = note_freq - osc2_param["mod_amt"]
-    osc2_lfo_scale.max = note_freq + osc2_param["mod_amt"]
+    osc1_lfo_scale.min = note_freq - osc1_param["freqMod"]
+    osc1_lfo_scale.max = note_freq + osc1_param["freqMod"]
+    osc2_lfo_scale.min = note_freq - osc2_param["freqMod"]
+    osc2_lfo_scale.max = note_freq + osc2_param["freqMod"]
 
     //Trigger the filter envelope
     lpf_envelope.triggerAttackRelease((60/BPM)/4 - 0.002)
@@ -1602,18 +1516,21 @@ function import_data(jsonData) {
 
         //Apply needed changes
         change_bpm(BPM, false)
-        change_osc1_pitch(osc1_param["pitch"], false)
-        change_osc2_pulse_width(osc2_param["pulse_width"], false)
-        change_osc2_pwm(osc2_param["pwm"], false)
-        change_osc_vol("osc1", osc1_param["volume"], false)
-        change_osc_vol("osc2", osc2_param["volume"], false)
-        change_osc_freq_modulation(osc1_param["mod_amt"], false)
-        change_lpf_settings("mod_amt", lpf_param["mod_amt"], linear_interpolation, false)
+
+        let settings = ["pitch", "pw", "pwMod", "vol", "vol", "freqMod"]
+        let corr_osc = ["osc1", "osc2", "osc2", "osc1", "osc2", "osc1"]
+        settings.forEach((setting, i) => {
+            let osc_name = corr_osc[i]
+            let params = param_variables[osc_name]
+            change_osc_settings(osc_name, setting, params[setting], false)
+        })
+        
+        change_lpf_settings("lfoMod", lpf_param["lfoMod"], linear_interpolation, false)
 
         for (let i=0; i<oscillators2.length; i++) {
-            //Update pulse width and connect/disconnect PWM
+            //Connect PWM if needed
             if (osc2_param["waveform"] == "pulse") {
-                oscillators2[i].oscillator.width.value = osc2_param["pulse_width"]
+                oscillators2[i].oscillator.width.value = osc2_param["pw"]
                 osc2_pwm_scales[i].connect(oscillators2[i].oscillator.width)
             }
         }
@@ -1624,14 +1541,12 @@ function import_data(jsonData) {
 
         //Update play section rendering
         toggle_edit_mode(-1)
-        if (MODE == 0) {
-            create_drum_machine_play_section()
-        } else if (MODE == 1) {
-            create_synth_play_section()
+        if (MODE == 1) {
             display_all_highlight_notes()
         }
 
     } catch(error) {
         console.error("Error when importing data:", error)
+        alert("Error when importing data")
     }
 }

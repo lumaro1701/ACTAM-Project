@@ -24,22 +24,17 @@
 
 
 /* --- General --- */
-.rotate-button {
+.rotate-button, .mini-rotate-button {
     height: 50px;
     width: 50px;
     border-radius: 30px;
     background-color: #676767;
-    border: none;
     cursor: pointer;
 }
 
 .mini-rotate-button {
     height: 40px;
     width: 40px;
-    border-radius: 30px;
-    background-color: #676767;
-    border: none;
-    cursor: pointer;
 }
 
 .start-message {
@@ -67,14 +62,12 @@
 }
 
 .left-knobs {
-    /*border: 3px solid black;*/
     width: 55%;
     display: flex;
     flex-direction: column;
 }
 
 .right-knobs {
-    /*border: 3px solid black;*/
     width: 45%;
     display: flex;
     flex-direction: column;
@@ -225,8 +218,6 @@
     display: flex;
     justify-content: center;
     align-items: center;
-
-
 }
 
 #screen {
@@ -321,7 +312,6 @@
 .upload-button:hover {
     background-color: rgb(66, 49, 34);
 }
-
 
 .key {
     background-color: rgb(253, 173, 25);
