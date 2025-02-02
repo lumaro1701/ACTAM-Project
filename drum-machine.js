@@ -732,6 +732,7 @@ function create_synth_knobs_section() {
         let btn = document.createElement("img")
         btn.src = "assets/"+text+".svg"
         btn.id = text+"_btn"
+        btn.style.marginTop = "5px"
         block.appendChild(btn)
     })
 
