@@ -15,40 +15,8 @@ document.addEventListener('click', function() {
         create_synth_knobs_section()
         load_synth_knobs_section()
 
-        //Load mode button
-        let mode_button = document.getElementById("mode_button")
-        mode_button.addEventListener('click', function() {
-            switch_mode()
-        })
-
-        //Load octave buttons
-        let octave_down = document.getElementById("octave_down")
-        octave_down.addEventListener('click', function() {
-            change_octave(-1)
-        })
-        let octave_up = document.getElementById("octave_up")
-        octave_up.addEventListener('click', function() {
-            change_octave(1)
-        })
-
-        //Tempo knob and screen
-        let tempo_knob = document.getElementById('tempo_knob')
-        let screen = document.getElementById('screen')
-        knob_rotation(tempo_knob)
-        change_screen_display(BPM) //Display the BPM at the loading
-
-        //Play/pause button
-        let play_button = document.getElementById("play_button")
-        play_button.addEventListener('click', function() {
-
-            if(PLAY == 0){ //Not playing
-                play_seq()
-            }else{ //Playing
-                stop_seq()
-            }
-            PLAY = 1 - PLAY
-            update_play_button()
-        })
+        //Load control section
+        load_control_section()
     }
 
 });
@@ -98,21 +66,16 @@ var samples = Array(NB_STEPS).fill(null)
 //Load the default samples into the previously defined array
 const sample_paths = [
     "samples/kick.wav",
-    "samples/kick2.wav",
-    "samples/kick3.wav",
     "samples/snare.wav",
-    "samples/snare2.wav",
-    "samples/snare3.wav",
-    "samples/closed_hihat.wav",
-    "samples/closed_hihat2.wav",
-    "samples/closed_hihat3.wav",
-    "samples/open_hihat.wav",
-    "samples/open_hihat2.wav",
-    "samples/clap.wav",
-    "samples/clap2.wav",
-    "samples/clap3.wav",
+    "samples/mini-snare.wav",
+    "samples/hat.wav",
+    "samples/shuffle.wav",
     "samples/ride.wav",
-    "samples/crash.wav",
+    "samples/kick2.wav",
+    "samples/snare2.wav",
+    "samples/clap.wav",
+    "samples/open-hihat.wav",
+    "samples/open-hihat2.wav",
 ]
 
 for (let i=0; i<sample_paths.length; i++) {
@@ -733,6 +696,7 @@ function create_synth_knobs_section() {
         btn.src = "assets/"+text+".svg"
         btn.id = text+"_btn"
         btn.style.marginTop = "5px"
+        btn.draggable = false
         block.appendChild(btn)
     })
 
@@ -1123,6 +1087,60 @@ function change_bpm(value, angle=true) {
     }
     BPM = Math.round(new_value)
     change_screen_display(BPM)
+}
+
+
+function load_control_section() {
+    //Load mode button
+    let mode_button = document.getElementById("mode_button")
+    mode_button.addEventListener('click', function() {
+        switch_mode()
+    })
+
+    //Load octave buttons
+    let octave_down = document.getElementById("octave_down")
+    octave_down.addEventListener('click', function() {
+        change_octave(-1)
+    })
+    let octave_up = document.getElementById("octave_up")
+    octave_up.addEventListener('click', function() {
+        change_octave(1)
+    })
+
+    //Tempo knob and screen
+    let tempo_knob = document.getElementById('tempo_knob')
+    knob_rotation(tempo_knob)
+    change_screen_display(BPM) //Display the BPM at the loading
+
+    //Play/pause button
+    let play_button = document.getElementById("play_button")
+    play_button.addEventListener('click', function() {
+        play_pause_pressed()
+    })
+
+    //Keyboard keys pressed
+    document.addEventListener('keydown', function(event) {
+        if (event.code === 'Space') {
+            play_pause_pressed()
+        } else if (event.key === 'm' || event.key === 'M') {
+            switch_mode()
+        } else if (event.key === '+') {
+            change_octave(1)
+        } else if (event.key === '-') {
+            change_octave(-1)
+        }
+    })
+}
+
+
+function play_pause_pressed() {
+    if(PLAY == 0){ //Not playing
+        play_seq()
+    }else{ //Playing
+        stop_seq()
+    }
+    PLAY = 1 - PLAY
+    update_play_button()
 }
 
 
