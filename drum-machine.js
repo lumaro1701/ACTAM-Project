@@ -1128,6 +1128,8 @@ function load_control_section() {
             change_octave(1)
         } else if (event.key === '-') {
             change_octave(-1)
+        } else if (event.key === 'a' || event.key === 'A') { //Test note
+            play_note(576) //C3
         }
     })
 }
