@@ -1426,8 +1426,8 @@ function play_note(key_index, osc_idx=0) {
 
     //Trigger the oscillators
     // the note is maximum one step duration
-    osc1.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
-    osc2.triggerAttackRelease(note, (60/BPM)/4 - 0.002)
+    osc1.triggerAttackRelease(note, (60/BPM)/4 - 0.01)
+    osc2.triggerAttackRelease(note, (60/BPM)/4 - 0.01)
 }
 
 //Function to be called when MULTIPLE notes must be played
